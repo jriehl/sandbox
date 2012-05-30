@@ -34,8 +34,22 @@ numpyext_testfn(PyObject * self, PyObject * args)
   return Py_None;
 }
 
+static PyObject *
+numpyext_getndim(PyObject * self, PyObject * args)
+{
+  PyArrayObject * arr = (PyArrayObject *)NULL;
+  if (!PyArg_ParseTuple(args, "O", &arr)) return NULL;
+  if (!PyArray_Check(arr))
+    {
+      PyErr_SetString(PyExc_ValueError, "Exepected ndarray input.");
+      return NULL;
+    }
+  return Py_BuildValue("i", arr->nd);
+}
+
 static PyMethodDef numpyext_methods[] = {
   {"testfn", numpyext_testfn, METH_VARARGS, NULL},
+  {"getndim", numpyext_getndim, METH_VARARGS, NULL},
   {NULL, NULL, 0, NULL}
 };
 
@@ -53,7 +67,9 @@ initnumpyext(void)
 def main (*args, **kws):
     numpyext = ic.py_module_from_c_source('numpyext', NPY_SRC, '-I',
         os.path.join(np.__path__[0], 'core', 'include', 'numpy'))
-    assert numpyext.testfn(np.array([1,2,3])) == None
+    test_array = np.array([1,2,3])
+    assert numpyext.testfn(test_array) == None
+    assert numpyext.getndim(test_array) == 1
 
 # ______________________________________________________________________
 
