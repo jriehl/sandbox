@@ -67,14 +67,19 @@ import llvm.core as lc
 import llvm.ee as le
 
 # ______________________________________________________________________
-# Main (test/demo) routine
+# Module level LLVM type definitions
 
-def main (*args, **kws):
+i64 = lc.Type.int(64)
+f64 = lc.Type.double()
+f64p = lc.Type.pointer(f64)
+tf_ty = lc.Type.function(f64, (i64, f64p))
+
+# ______________________________________________________________________
+# Function definitions
+
+def build_stack_version ():
     m = lc.Module.new('whiletestmod')
-    i64 = lc.Type.int(64)
-    f64 = lc.Type.double()
-    f64p = lc.Type.pointer(f64)
-    tf_ty = lc.Type.function(f64, (i64, f64p))
+
     tf = lc.Function.new(m, tf_ty, 'whiletestfn')
     arg0 = tf.args[0]; arg0.name = 'max_index'
     arg1 = tf.args[1]; arg1.name = 'indexable'
@@ -109,20 +114,70 @@ def main (*args, **kws):
     b.position_at_end(ret)
     rval = b.load(acc, 'tmp')
     b.ret(rval)
+    return m
 
+# ______________________________________________________________________
+
+def build_phi_version ():
+    m = lc.Module.new('whiletestmod2')
+
+    tf = lc.Function.new(m, tf_ty, 'whiletestfn')
+    arg0 = tf.args[0]; arg0.name = 'max_index'
+    arg1 = tf.args[1]; arg1.name = 'indexable'
+    entry = tf.append_basic_block('entry')
+    loopin = tf.append_basic_block('loopin')
+    loopbody = tf.append_basic_block('loopbody')
+    ret = tf.append_basic_block('return')
+
+    b = lc.Builder.new(entry)
+    b.branch(loopin)
+
+    b.position_at_end(loopin)
+    ival = b.phi(i64)
+    ival.add_incoming(lc.Constant.int(i64, 0), entry)
+    accval = b.phi(f64)
+    accval.add_incoming(lc.Constant.real(f64, 0.), entry)
+    index_cmp = b.icmp(lc.IPRED_SLT, ival, arg0, 'tmp')
+    b.cbranch(index_cmp, loopbody, ret)
+
+    b.position_at_end(loopbody)
+    addr_at_index = b.gep(arg1, (ival,), 'tmp')
+    val_at_index = b.load(addr_at_index, 'tmp')
+    accup = b.fadd(accval, val_at_index, 'tmp')
+    accval.add_incoming(accup, loopbody)
+    iup = b.add(ival, lc.Constant.int(i64, 1))
+    ival.add_incoming(iup, loopbody)
+    b.branch(loopin)
+
+    b.position_at_end(ret)
+    b.ret(accval)
+    return m
+
+# ______________________________________________________________________
+
+def test_module (m):
     print "_" * 70
     print m
     print "_" * 70
-
     myarr = array.array('d', [1,2,3])
     max_index = le.GenericValue.int(i64, 3)
     indexable = le.GenericValue.pointer(f64p, myarr.buffer_info()[0])
     ee = le.ExecutionEngine.new(m)
+    tf = m.get_function_named('whiletestfn')
     result = ee.run_function(tf, [max_index, indexable]).as_real(f64)
     assert result == 6.
     print result
-
     return m
+
+# ______________________________________________________________________
+# Main (test/demo) routine
+
+def main (*args, **kws):
+    m1 = build_stack_version()
+    test_module(m1)
+    m2 = build_phi_version()
+    test_module(m2)
+    return m1, m2
 
 # ______________________________________________________________________
 
