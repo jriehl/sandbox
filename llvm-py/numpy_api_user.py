@@ -13,12 +13,18 @@ import inline_c as ic # At time of writing this is a test in my fork
                       # of llvm-py.  See .../test/inline_c.py in
                       # https://github.com/jriehl/llvm-py/
 import numpy as np
+import numpy.ctypeslib as npctl
+import ctypes
 
 # ______________________________________________________________________
 # Module data
 
-with open('numpy_api_user.c') as cfile:
+with open('numpyext.c') as cfile:
     NPY_SRC = cfile.read()
+
+numpy_arr_to_int_wrap_func_ty = ctypes.CFUNCTYPE(ctypes.c_int,
+                                                 npctl.ndpointer(
+        flags = 'C_CONTIGUOUS'))
 
 # ______________________________________________________________________
 # Main (demo) routine
@@ -30,6 +36,9 @@ def main (*args, **kws):
     test_array = np.array([1,2,3])
     assert numpyext.testfn(test_array) == None
     assert numpyext.getndim(test_array) == 1
+    numpyext.c_getndim_wrap = numpy_arr_to_int_wrap_func_ty(numpyext.c_getndim)
+    assert numpyext.c_getndim_wrap(test_array) == 1
+    return numpyext
 
 # ______________________________________________________________________
 

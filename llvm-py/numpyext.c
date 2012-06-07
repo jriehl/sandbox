@@ -1,15 +1,21 @@
 /* ______________________________________________________________________
-   numpy_api_user.c
+   numpyext.c
 
    Simple C extension module that demonstrates using the Numpy C API.
    Used as clang input to assist with identifying target LLVM code for
    Numba.
 
-   Test driver: numpy_api_user.py
+   LLVM test driver: numpy_api_user.py
 
    Command line:
    % clang -I </path/to/Python.h> -I </path/to/ndarrayobject.h> -emit-llvm \
-     numpy_api_user.c
+     numpyext.c
+
+   To build standalone Python extension module (on Linux, anyway):
+   % gcc -shared -fPIC -I </path/to/Python.h> -I </path/to/ndarrayobject.h> \
+     numpyext.c -o numpyext.so
+
+   Standalone/ctypes test driver: test_numpyext.py
    ______________________________________________________________________ */
 
 #include <Python.h>
@@ -27,6 +33,12 @@ numpyext_testfn(PyObject * self, PyObject * args)
     }
   Py_INCREF(Py_None);
   return Py_None;
+}
+
+int _getndim(PyArrayObject * arr)
+{
+  if (!PyArray_Check(arr)) return -1;
+  return arr->nd;
 }
 
 static PyObject *
@@ -51,10 +63,16 @@ static PyMethodDef numpyext_methods[] = {
 PyMODINIT_FUNC
 initnumpyext(void)
 {
+  PyObject * mod = (PyObject *)NULL;
   import_array();
-  Py_InitModule("numpyext", numpyext_methods);
+  mod = Py_InitModule("numpyext", numpyext_methods);
+  if (mod)
+    {
+      PyModule_AddObject(mod, "c_getndim_addr",
+                         Py_BuildValue("l", (long)_getndim));
+    }
 }
 
 /* ______________________________________________________________________
-   End of numpy_api_user.c
+   End of numpyext.c
    ______________________________________________________________________ */
