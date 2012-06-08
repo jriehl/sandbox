@@ -12,21 +12,27 @@ import ctypes
 import numpy as np
 import numpy.ctypeslib as npctl
 
-numpy_arr_ty = npctl.ndpointer(flags = 'C_CONTIGUOUS')
-numpy_arr_to_int_wrap_func_ty = ctypes.CFUNCTYPE(ctypes.c_int, numpy_arr_ty)
+numpy_arr_to_int_wrap_func_ty = ctypes.CFUNCTYPE(ctypes.c_int,
+                                                 ctypes.py_object)
 
 # ______________________________________________________________________
 
 def test_standalone_wrap ():
     c_getndim_wrap = numpy_arr_to_int_wrap_func_ty(numpyext.c_getndim_addr)
     arr = np.array([1.,2,3])
-    assert c_getndim_wrap(arr) == numpyext.getndim(arr)
+    ndim_result = c_getndim_wrap(arr)
+    assert ndim_result == numpyext.getndim(arr)
+    if __debug__:
+        print "test_standalone_wrap(): ndim_result =", ndim_result
 
 def test_dll_wrap ():
     numpyext2 = ctypes.CDLL('./numpyext.so')
-    numpyext2._getndim.argtypes = [numpy_arr_ty]
+    numpyext2._getndim.argtypes = [ctypes.py_object]
     numpyext2._getndim.restype = ctypes.c_int
-    assert numpyext2._getndim(np.array([1.,2,3])) == 1
+    ndim_result = numpyext2._getndim(np.array([1.,2,3]))
+    assert ndim_result == 1
+    if __debug__:
+        print "test_dll_wrap(): ndim_result =", ndim_result
 
 # ______________________________________________________________________
 # Main routine

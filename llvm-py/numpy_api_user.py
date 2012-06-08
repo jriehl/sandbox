@@ -23,8 +23,7 @@ with open('numpyext.c') as cfile:
     NPY_SRC = cfile.read()
 
 numpy_arr_to_int_wrap_func_ty = ctypes.CFUNCTYPE(ctypes.c_int,
-                                                 npctl.ndpointer(
-        flags = 'C_CONTIGUOUS'))
+                                                 ctypes.py_object)
 
 # ______________________________________________________________________
 # Main (demo) routine
@@ -36,7 +35,8 @@ def main (*args, **kws):
     test_array = np.array([1,2,3])
     assert numpyext.testfn(test_array) == None
     assert numpyext.getndim(test_array) == 1
-    numpyext.c_getndim_wrap = numpy_arr_to_int_wrap_func_ty(numpyext.c_getndim)
+    numpyext.c_getndim_wrap = numpy_arr_to_int_wrap_func_ty(
+        numpyext.c_getndim_addr)
     assert numpyext.c_getndim_wrap(test_array) == 1
     return numpyext
 
