@@ -24,6 +24,8 @@ with open('numpyext.c') as cfile:
 
 numpy_arr_to_int_wrap_func_ty = ctypes.CFUNCTYPE(ctypes.c_int,
                                                  ctypes.py_object)
+numpy_arr_to_arr_wrap_func_ty = ctypes.CFUNCTYPE(ctypes.py_object,
+                                                 ctypes.py_object)
 
 # ______________________________________________________________________
 # Main (demo) routine
@@ -38,6 +40,11 @@ def main (*args, **kws):
     numpyext.c_getndim_wrap = numpy_arr_to_int_wrap_func_ty(
         numpyext.c_getndim_addr)
     assert numpyext.c_getndim_wrap(test_array) == 1
+    numpyext.c_do_zeros_like_wrap = numpy_arr_to_arr_wrap_func_ty(
+        numpyext.c_do_zeros_like_addr)
+    zeros_like_result = numpyext.c_do_zeros_like_wrap(test_array)
+    assert (zeros_like_result == 0.).all()
+    assert zeros_like_result.shape == test_array.shape
     return numpyext
 
 # ______________________________________________________________________

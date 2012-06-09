@@ -41,6 +41,12 @@ int _getndim(PyArrayObject * arr)
   return arr->nd;
 }
 
+PyObject * _do_zeros_like(PyArrayObject * arr)
+{
+  if (!PyArray_Check(arr)) return NULL;
+  return PyArray_Zeros(arr->nd, arr->dimensions, arr->descr, 0);
+}
+
 static PyObject *
 numpyext_getndim(PyObject * self, PyObject * args)
 {
@@ -70,6 +76,8 @@ initnumpyext(void)
     {
       PyModule_AddObject(mod, "c_getndim_addr",
                          Py_BuildValue("l", (long)_getndim));
+      PyModule_AddObject(mod, "c_do_zeros_like_addr",
+                         Py_BuildValue("l", (long)_do_zeros_like));
     }
 }
 
