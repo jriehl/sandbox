@@ -2,6 +2,10 @@
 '''cfg_test.py
 
 Tests various algorithms on control flow graphs.
+
+FIXME: This class does NOT calculate the correct dominator
+relationship.  See the fixed version in numba.cfg.ControlFlowGraph in
+the actual numba repository.
 '''
 # ______________________________________________________________________
 
@@ -31,6 +35,8 @@ class CFG (object):
 
     def compute_dom (self):
         '''Compute the dominator relationship in the CFG.'''
+        raise NotImplementedError("FIXME: Incorrectly implemented the first "
+                                  "time around.")
         for block in self.blocks.iterkeys():
             self.blocks_dom[block] = set((block,))
         changed = True
