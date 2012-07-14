@@ -3,6 +3,7 @@
 *.bc
 *.so
 *.py[co]
+*.o
 
 # Packages
 *.egg
