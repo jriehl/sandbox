@@ -1,7 +1,14 @@
 #include <stdio.h>
 #include <complex.h>
 
-double complex cidentity(double complex in_val)
+typedef struct { double real; double imag; } test_complex_t;
+
+double complex cidentity (double complex in_val)
+{
+    return in_val;
+}
+
+test_complex_t cidentity2 (test_complex_t in_val)
 {
     return in_val;
 }

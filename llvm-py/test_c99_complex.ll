@@ -1,6 +1,8 @@
 ; ModuleID = 'test_c99_complex.c'
-target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+;target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
+;target triple = "x86_64-unknown-linux-gnu"
+
+%struct.test_complex_t = type { double, double }
 
 @.str = private unnamed_addr constant [22 x i8] c"test_fn(): %lg%+lgj\0A\0A\00", align 1
 
@@ -23,6 +25,25 @@ entry:
   %2 = load { double, double }* %retval
   ret { double, double } %2
 }
+
+define { double, double } @cidentity2(double %in_val.coerce0, double %in_val.coerce1) nounwind uwtable {
+entry:
+  %retval = alloca %struct.test_complex_t, align 8
+  %in_val = alloca %struct.test_complex_t, align 8
+  %0 = bitcast %struct.test_complex_t* %in_val to { double, double }*
+  %1 = getelementptr { double, double }* %0, i32 0, i32 0
+  store double %in_val.coerce0, double* %1
+  %2 = getelementptr { double, double }* %0, i32 0, i32 1
+  store double %in_val.coerce1, double* %2
+  %3 = bitcast %struct.test_complex_t* %retval to i8*
+  %4 = bitcast %struct.test_complex_t* %in_val to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %3, i8* %4, i64 16, i32 8, i1 false)
+  %5 = bitcast %struct.test_complex_t* %retval to { double, double }*
+  %6 = load { double, double }* %5, align 1
+  ret { double, double } %6
+}
+
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture, i64, i32, i1) nounwind
 
 define void @test_fn() nounwind uwtable {
 entry:
