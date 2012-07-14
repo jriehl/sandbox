@@ -8,30 +8,33 @@ handles them.
 # ______________________________________________________________________
 
 import inline_c as ic
+import llvm.core as lc
+import llvm.ee as le
 
 # ______________________________________________________________________
 
-TEST_SRC = '''#include <stdio.h>
-#include <complex.h>
-
-double complex cidentity(double complex in_val)
-{
-    return in_val;
-}
-
-void test_fn (void)
-{
-    double complex v = cidentity(4.+3.j);
-
-    printf("%lg %lg", creal(v), cimag(v));
-}
-'''
+with open('test_c99_complex.c') as cfile:
+    TEST_C_SRC = cfile.read()
 
 # ______________________________________________________________________
 
 def main (*args):
-    lmod = ic.llvm_module_from_c_source(TEST_SRC, *args)
-    print lmod
+    SKIP_CLANG = False
+    args = list(args)
+    if '-a' in args:
+        args.remove('-a')
+        SKIP_CLANG = True
+    if not SKIP_CLANG:
+        lmod = ic.llvm_module_from_c_source(TEST_C_SRC, *args)
+        print lmod
+        ee = le.ExecutionEngine.new(lmod)
+        ee.run_static_ctors()
+        ee.run_function(lmod.get_function_named('test_fn'), [])
+    with open('test_c99_complex.ll') as llfile:
+        lmod2 = lc.Module.from_assembly(llfile)
+    ee2 = le.ExecutionEngine.new(lmod2)
+    ee2.run_static_ctors()
+    ee2.run_function(lmod2.get_function_named('test_fn'), [])
 
 # ______________________________________________________________________
 
