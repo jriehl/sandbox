@@ -7,7 +7,11 @@ handles them.
 '''
 # ______________________________________________________________________
 
-import inline_c as ic
+try:
+    import inline_c as ic
+except ImportError:
+    ic = None
+
 import llvm.core as lc
 import llvm.ee as le
 
