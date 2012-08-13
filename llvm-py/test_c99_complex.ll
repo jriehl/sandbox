@@ -45,6 +45,17 @@ entry:
 
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture, i64, i32, i1) nounwind
 
+define void @cidentity2_1({ double, double }* sret %oval, double %in_val.coerce0, double %in_val.coerce1) nounwind {
+  %1 = call {double, double} @cidentity2(double %in_val.coerce0, double %in_val.coerce1)
+  %2 = extractvalue { double, double } %1, 0
+  %3 = extractvalue { double, double } %1, 1
+  %4 = getelementptr inbounds { double, double }* %oval, i32 0, i32 0
+  %5 = getelementptr inbounds { double, double }* %oval, i32 0, i32 1
+  store double %2, double* %4
+  store double %3, double* %5
+  ret void
+}
+
 define void @test_fn() nounwind uwtable {
 entry:
   %v = alloca { double, double }, align 8
