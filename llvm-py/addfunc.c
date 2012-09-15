@@ -38,9 +38,18 @@ static PyObject * addfunc (PyObject * self, PyObject * args)
   return result;
 }
 
+PyObject * addfunc_add42 (PyObject * self, PyObject * args)
+{
+  long value = 0;
+  if (!PyArg_ParseTuple(args, "l", &value)) return NULL;
+  value += 42;
+  return PyInt_FromLong(value);
+}
+
 static PyMethodDef AddFuncMethods [] = {
   {"addfunc", addfunc, METH_VARARGS,
    "Given a function name as a string, function pointer as an integer, create and return a PyCFunction wrapper object." },
+  {"add42", addfunc_add42, METH_VARARGS, NULL},
   { NULL, NULL, 0, NULL}
 };
 
@@ -50,9 +59,3 @@ initaddfunc (void)
   Py_InitModule("addfunc", AddFuncMethods);
 }
 
-PyObject * addfunc_add42 (PyObject * self, PyObject * args)
-{
-  long value = 0;
-  if (!PyArg_ParseTuple(args, "l", &value)) return NULL;
-  return PyInt_FromLong(value + 42);
-}
