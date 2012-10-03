@@ -2,6 +2,7 @@
 *.s
 *.bc
 *.so
+*.dll
 *.py[co]
 *.o
 

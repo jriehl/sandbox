@@ -1,0 +1,212 @@
+#! /usr/bin/env python
+# ______________________________________________________________________
+
+import dis
+import opcode
+
+from bytecode_visitor import BytecodeVisitor
+from opcode_util import OPCODE_MAP
+
+# ______________________________________________________________________
+
+class BytecodeFlowVisitor (BytecodeVisitor):
+    def __init__ (self, *args, **kws):
+        super(BytecodeFlowVisitor, self).__init__(*args, **kws)
+        om_items = OPCODE_MAP.items()
+        self.opmap = dict((opcode.opmap[opname], (opname, pops, pushes, stmt))
+                          for opname, (pops, pushes, stmt) in om_items
+                          if opname in opcode.opmap)
+
+    def _visit_op (self, i, op, arg, opname, pops, pushes, appends):
+        assert pops is not None
+        if pops:
+            if pops < 0:
+                pops = arg - pops - 1
+            stk_args = self.stack[-pops:]
+            del self.stack[-pops:]
+        else:
+            stk_args = []
+        ret_val = (i, op, opname, arg, stk_args)
+        if pushes:
+            self.stack.append(ret_val)
+        if appends:
+            self.block.append(ret_val)
+        return ret_val
+
+    def _op (self, i, op, arg):
+        opname, pops, pushes, appends = self.opmap[op]
+        return self._visit_op(i, op, arg, opname, pops, pushes, appends)
+
+    def enter_code_object (self, co_obj):
+        self.blocks = dict((index, [])
+                           for index in dis.findlabels(co_obj.co_code))
+        self.stack = []
+        self.loop_stack = []
+        self.blocks[0] = self.block = []
+
+    def exit_code_object (self, co_obj):
+        ret_val = self.blocks
+        del self.stack
+        del self.loop_stack
+        del self.block
+        del self.blocks
+        return ret_val
+
+    def visit_op (self, i, op, arg):
+        if i in self.blocks:
+            self.block = self.blocks[i]
+        return super(BytecodeFlowVisitor, self).visit_op(i, op, arg)
+
+    op_BINARY_ADD = _op
+    op_BINARY_AND = _op
+    op_BINARY_DIVIDE = _op
+    op_BINARY_FLOOR_DIVIDE = _op
+    op_BINARY_LSHIFT = _op
+    op_BINARY_MODULO = _op
+    op_BINARY_MULTIPLY = _op
+    op_BINARY_OR = _op
+    op_BINARY_POWER = _op
+    op_BINARY_RSHIFT = _op
+    op_BINARY_SUBSCR = _op
+    op_BINARY_SUBTRACT = _op
+    op_BINARY_TRUE_DIVIDE = _op
+    op_BINARY_XOR = _op
+    #op_BREAK_LOOP = _op
+    #op_BUILD_CLASS = _op
+    op_BUILD_LIST = _op
+    op_BUILD_MAP = _op
+    op_BUILD_SLICE = _op
+    op_BUILD_TUPLE = _op
+    op_CALL_FUNCTION = _op
+    op_CALL_FUNCTION_KW = _op
+    op_CALL_FUNCTION_VAR = _op
+    op_CALL_FUNCTION_VAR_KW = _op
+    op_COMPARE_OP = _op
+    #op_CONTINUE_LOOP = _op
+    op_DELETE_ATTR = _op
+    op_DELETE_FAST = _op
+    op_DELETE_GLOBAL = _op
+    op_DELETE_NAME = _op
+    op_DELETE_SLICE = _op
+    op_DELETE_SUBSCR = _op
+
+    def op_DUP_TOP (self, i, op, arg):
+        self.stack.append(self.stack[-1])
+
+    def op_DUP_TOPX (self, i, op, arg):
+        self.stack += self.stack[-arg:]
+
+    #op_END_FINALLY = _op
+    op_EXEC_STMT = _op
+    #op_EXTENDED_ARG = _op
+    op_FOR_ITER = _op
+    op_GET_ITER = _op
+    op_IMPORT_FROM = _op
+    op_IMPORT_NAME = _op
+    op_IMPORT_STAR = _op
+    op_INPLACE_ADD = _op
+    op_INPLACE_AND = _op
+    op_INPLACE_DIVIDE = _op
+    op_INPLACE_FLOOR_DIVIDE = _op
+    op_INPLACE_LSHIFT = _op
+    op_INPLACE_MODULO = _op
+    op_INPLACE_MULTIPLY = _op
+    op_INPLACE_OR = _op
+    op_INPLACE_POWER = _op
+    op_INPLACE_RSHIFT = _op
+    op_INPLACE_SUBTRACT = _op
+    op_INPLACE_TRUE_DIVIDE = _op
+    op_INPLACE_XOR = _op
+    op_JUMP_ABSOLUTE = _op
+    op_JUMP_FORWARD = _op
+    op_JUMP_IF_FALSE = _op
+    op_JUMP_IF_TRUE = _op
+    op_LIST_APPEND = _op
+    op_LOAD_ATTR = _op
+    op_LOAD_CLOSURE = _op
+    op_LOAD_CONST = _op
+    op_LOAD_DEREF = _op
+    op_LOAD_FAST = _op
+    op_LOAD_GLOBAL = _op
+    op_LOAD_LOCALS = _op
+    op_LOAD_NAME = _op
+    op_MAKE_CLOSURE = _op
+    op_MAKE_FUNCTION = _op
+    op_NOP = _op
+
+    def op_POP_BLOCK (self, i, op, arg):
+        self.loop_stack.pop(-1)
+
+    op_POP_TOP = _op
+    op_PRINT_EXPR = _op
+    op_PRINT_ITEM = _op
+    op_PRINT_ITEM_TO = _op
+    op_PRINT_NEWLINE = _op
+    op_PRINT_NEWLINE_TO = _op
+    op_RAISE_VARARGS = _op
+    op_RETURN_VALUE = _op
+
+    def op_ROT_FOUR (self, i, op, arg):
+        self.stack[-4:] = (self.stack[-1], self.stack[-4], self.stack[-3],
+                           self.stack[-2])
+
+    def op_ROT_THREE (self, i, op, arg):
+        self.stack[-3:] = (self.stack[-1], self.stack[-3], self.stack[-2])
+
+    def op_ROT_TWO (self, i, op, arg):
+        self.stack[-2:] = (self.stack[-1], self.stack[-2])
+
+    #op_SETUP_EXCEPT = _op
+    #op_SETUP_FINALLY = _op
+
+    def op_SETUP_LOOP (self, i, op, arg):
+        self.loop_stack.append((i, op, arg))
+
+    op_SLICE = _op
+    #op_STOP_CODE = _op
+    op_STORE_ATTR = _op
+    op_STORE_DEREF = _op
+    op_STORE_FAST = _op
+    op_STORE_GLOBAL = _op
+    op_STORE_MAP = _op
+    op_STORE_NAME = _op
+    op_STORE_SLICE = _op
+    op_STORE_SUBSCR = _op
+    op_UNARY_CONVERT = _op
+    op_UNARY_INVERT = _op
+    op_UNARY_NEGATIVE = _op
+    op_UNARY_NOT = _op
+    op_UNARY_POSITIVE = _op
+    op_UNPACK_SEQUENCE = _op
+    #op_WITH_CLEANUP = _op
+    op_YIELD_VALUE = _op
+
+# ______________________________________________________________________
+
+def test_doslice2 ():
+    def doslice2 (a, b, c):
+        l = strlen(a)
+        if b < 0:
+            b += l
+        if c < 0:
+            c += l
+        tl = c - b
+        if tl < 0:
+            tl = 0
+        rv = alloca_array_uint8(tl + 1)
+        strncpy(rv, a, tl)
+        rv[tl] = 0
+        return rv
+    v = BytecodeFlowVisitor()
+    if hasattr(doslice2, 'func_code'):
+        code_obj = doslice2.func_code
+    else:
+        code_obj = doslice2.__code__
+    return v.visit(code_obj)
+
+if __name__ == '__main__':
+    import pprint
+    pprint.pprint(test_doslice2())
+
+# ______________________________________________________________________
+# End of byteflow.py
