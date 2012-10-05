@@ -1,7 +1,14 @@
 #! /usr/bin/env python
 # ______________________________________________________________________
 
+import dis
 import opcode
+
+# ______________________________________________________________________
+# Module data
+
+hascbranch = [op for op in opcode.hasjrel + opcode.hasjabs
+              if 'IF' in opcode.opname[op] or opcode.opname[op] == 'FOR_ITER']
 
 # Since the actual opcode value may change, manage opcode abstraction
 # data by opcode name.
@@ -90,8 +97,8 @@ OPCODE_MAP = {
     'NOP': (0, None, None),
     'POP_BLOCK': (None, None, None),
     'POP_EXCEPT': (None, None, None),
-    'POP_JUMP_IF_FALSE': (None, None, None),
-    'POP_JUMP_IF_TRUE': (None, None, None),
+    'POP_JUMP_IF_FALSE': (1, None, 1),
+    'POP_JUMP_IF_TRUE': (1, None, 1),
     'POP_TOP': (1, None, 1),
     'PRINT_EXPR': (1, None, 1),
     'PRINT_ITEM': (1, None, 1),
@@ -137,6 +144,7 @@ OPCODE_MAP = {
 }
 
 # ______________________________________________________________________
+# Module functions
 
 def itercode(code):
     """Return a generator of byte-offset, opcode, and argument
@@ -164,6 +172,39 @@ def itercode(code):
             abs_rel, dst = delta
             assert abs_rel == 'abs' or abs_rel == 'rel'
             i = dst if abs_rel == 'abs' else i + dst
+
+# ______________________________________________________________________
+
+def extendlabels(code, labels = None):
+    """Extend the set of jump target labels to account for the
+    passthrough targets of conditional branches.
+
+    This allows us to create a control flow graph where there is at
+    most one branch per basic block.
+    """
+    if labels is None:
+        labels = []
+    if isinstance(code[0], str):
+        code = [ord(c) for c in code]
+    n = len(code)
+    i = 0
+    while i < n:
+        op = code[i]
+        i += 1
+        if op >= dis.HAVE_ARGUMENT:
+            i += 2
+            label = -1
+            if op in hascbranch:
+                label = i
+            if label >= 0:
+                if label not in labels:
+                    labels.append(label)
+    return labels
+
+# ______________________________________________________________________
+
+def get_code_object (func):
+    return getattr(func, '__code__', getattr(func, 'func_code', None))
 
 # ______________________________________________________________________
 # End of opcode_util.py

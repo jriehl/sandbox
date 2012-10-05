@@ -4,15 +4,15 @@
 import dis
 import opcode
 
-from bytecode_visitor import BytecodeVisitor
-from opcode_util import OPCODE_MAP
+from bytecode_visitor import BytecodeIterVisitor
+import opcode_util
 
 # ______________________________________________________________________
 
-class BytecodeFlowVisitor (BytecodeVisitor):
+class BytecodeFlowBuilder (BytecodeIterVisitor):
     def __init__ (self, *args, **kws):
-        super(BytecodeFlowVisitor, self).__init__(*args, **kws)
-        om_items = OPCODE_MAP.items()
+        super(BytecodeFlowBuilder, self).__init__(*args, **kws)
+        om_items = opcode_util.OPCODE_MAP.items()
         self.opmap = dict((opcode.opmap[opname], (opname, pops, pushes, stmt))
                           for opname, (pops, pushes, stmt) in om_items
                           if opname in opcode.opmap)
@@ -38,8 +38,10 @@ class BytecodeFlowVisitor (BytecodeVisitor):
         return self._visit_op(i, op, arg, opname, pops, pushes, appends)
 
     def enter_code_object (self, co_obj):
+        labels = dis.findlabels(co_obj.co_code)
+        labels = opcode_util.extendlabels(co_obj.co_code, labels)
         self.blocks = dict((index, [])
-                           for index in dis.findlabels(co_obj.co_code))
+                           for index in labels)
         self.stack = []
         self.loop_stack = []
         self.blocks[0] = self.block = []
@@ -55,7 +57,7 @@ class BytecodeFlowVisitor (BytecodeVisitor):
     def visit_op (self, i, op, arg):
         if i in self.blocks:
             self.block = self.blocks[i]
-        return super(BytecodeFlowVisitor, self).visit_op(i, op, arg)
+        return super(BytecodeFlowBuilder, self).visit_op(i, op, arg)
 
     op_BINARY_ADD = _op
     op_BINARY_AND = _op
@@ -137,6 +139,8 @@ class BytecodeFlowVisitor (BytecodeVisitor):
     def op_POP_BLOCK (self, i, op, arg):
         self.loop_stack.pop(-1)
 
+    op_POP_JUMP_IF_FALSE = _op
+    op_POP_JUMP_IF_TRUE = _op
     op_POP_TOP = _op
     op_PRINT_EXPR = _op
     op_PRINT_ITEM = _op
@@ -183,30 +187,28 @@ class BytecodeFlowVisitor (BytecodeVisitor):
 
 # ______________________________________________________________________
 
-def test_doslice2 ():
-    def doslice2 (a, b, c):
-        l = strlen(a)
-        if b < 0:
-            b += l
-        if c < 0:
-            c += l
-        tl = c - b
-        if tl < 0:
-            tl = 0
-        rv = alloca_array_uint8(tl + 1)
-        strncpy(rv, a, tl)
-        rv[tl] = 0
-        return rv
-    v = BytecodeFlowVisitor()
-    if hasattr(doslice2, 'func_code'):
-        code_obj = doslice2.func_code
-    else:
-        code_obj = doslice2.__code__
+def doslice (in_string, lower, upper):
+    l = strlen(in_string)
+    if lower < 0:
+        lower += l
+    if upper < 0:
+        upper += l
+    temp_len = upper - lower
+    if temp_len < 0:
+        temp_len = 0
+    ret_val = alloca_array(li8, temp_len + 1)
+    strncpy(ret_val, in_string + lower, temp_len)
+    ret_val[temp_len] = 0
+    return ret_val
+
+def test_doslice ():
+    v = BytecodeFlowBuilder()
+    code_obj = opcode_util.get_code_object(doslice)
     return v.visit(code_obj)
 
 if __name__ == '__main__':
     import pprint
-    pprint.pprint(test_doslice2())
+    pprint.pprint(test_doslice())
 
 # ______________________________________________________________________
 # End of byteflow.py
