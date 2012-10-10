@@ -73,7 +73,12 @@ class BytecodeFlowBuilder (BytecodeIterVisitor):
     op_BINARY_SUBTRACT = _op
     op_BINARY_TRUE_DIVIDE = _op
     op_BINARY_XOR = _op
-    #op_BREAK_LOOP = _op
+
+    def op_BREAK_LOOP (self, i, op, arg):
+        loop_i, _, loop_arg = self.loop_stack[-1]
+        assert arg is None
+        return self._op(i, op, loop_i + loop_arg + 3)
+
     #op_BUILD_CLASS = _op
     op_BUILD_LIST = _op
     op_BUILD_MAP = _op
@@ -137,7 +142,8 @@ class BytecodeFlowBuilder (BytecodeIterVisitor):
     op_NOP = _op
 
     def op_POP_BLOCK (self, i, op, arg):
-        self.loop_stack.pop(-1)
+        self.loop_stack.pop()
+        return self._op(i, op, arg)
 
     op_POP_JUMP_IF_FALSE = _op
     op_POP_JUMP_IF_TRUE = _op
@@ -165,6 +171,7 @@ class BytecodeFlowBuilder (BytecodeIterVisitor):
 
     def op_SETUP_LOOP (self, i, op, arg):
         self.loop_stack.append((i, op, arg))
+        self.block.append((i, op, self.opnames[op], arg, []))
 
     op_SLICE = _op
     #op_STOP_CODE = _op
@@ -187,28 +194,24 @@ class BytecodeFlowBuilder (BytecodeIterVisitor):
 
 # ______________________________________________________________________
 
-def doslice (in_string, lower, upper):
-    l = strlen(in_string)
-    if lower < 0:
-        lower += l
-    if upper < 0:
-        upper += l
-    temp_len = upper - lower
-    if temp_len < 0:
-        temp_len = 0
-    ret_val = alloca_array(li8, temp_len + 1)
-    strncpy(ret_val, in_string + lower, temp_len)
-    ret_val[temp_len] = 0
-    return ret_val
-
-def test_doslice ():
-    v = BytecodeFlowBuilder()
-    code_obj = opcode_util.get_code_object(doslice)
-    return v.visit(code_obj)
-
-if __name__ == '__main__':
-    import pprint
-    pprint.pprint(test_doslice())
+def build_flow (func):
+    return BytecodeFlowBuilder().visit(opcode_util.get_code_object(func))
 
 # ______________________________________________________________________
-# End of byteflow.py
+# Main (self-test) routine
+
+def main (*args):
+    import pprint, llfuncs
+    if not args:
+        args = ('doslice',)
+    for arg in args:
+        pprint.pprint(build_flow(getattr(llfuncs, arg)))
+
+# ______________________________________________________________________
+
+if __name__ == '__main__':
+    import sys
+    main(*sys.argv[1:])
+
+# ______________________________________________________________________
+# End of byte_flow.py

@@ -221,22 +221,24 @@ class ControlFlowGraph (object):
 # ______________________________________________________________________
 
 class ControlFlowBuilder (BenignBytecodeVisitorMixin, BytecodeFlowVisitor):
-    def visit (self, flow, *args, **kws):
-        if 'code_obj' in kws:
-            self.code_obj = kws.pop('code_obj')
+    def visit (self, flow, nargs = 0, *args, **kws):
+        self.nargs = nargs
         ret_val = super(ControlFlowBuilder, self).visit(flow, *args, **kws)
-        if hasattr(self, 'code_obj'):
-            del self.code_obj
+        del self.nargs
         return ret_val
 
     def enter_flow_object (self, flow):
+        super(ControlFlowBuilder, self).enter_flow_object(flow)
         self.flow = flow
         self.cfg = ControlFlowGraph()
         for block in flow.keys():
             self.cfg.add_block(block, flow[block])
 
     def exit_flow_object (self, flow):
+        super(ControlFlowBuilder, self).exit_flow_object(flow)
         assert self.flow == flow
+        self.cfg.compute_dataflow()
+        self.cfg.update_for_ssa()
         ret_val = self.cfg
         del self.cfg
         del self.flow
@@ -245,9 +247,9 @@ class ControlFlowBuilder (BenignBytecodeVisitorMixin, BytecodeFlowVisitor):
     def enter_block (self, block):
         self.block = block
         assert block in self.cfg.blocks
-        if block == 0 and hasattr(self, 'code_obj'):
-            for local_index in range(self.code_obj.co_argcount):
-                self.op_STORE_FAST(0, None, local_index)
+        if block == 0:
+            for local_index in range(self.nargs):
+                self.op_STORE_FAST(0, opcode.opmap['STORE_FAST'], local_index)
         return True
 
     def _get_next_block (self, block):
@@ -261,6 +263,8 @@ class ControlFlowBuilder (BenignBytecodeVisitorMixin, BytecodeFlowVisitor):
             self.cfg.add_edge(block, arg)
         elif op in opcode.hasjrel:
             self.cfg.add_edge(block, i + arg + 3)
+        elif opname == 'BREAK_LOOP':
+            self.cfg.add_edge(block, arg)
         elif opname != 'RETURN_VALUE':
             self.cfg.add_edge(block, self._get_next_block(block))
         if op in opcode_util.hascbranch:
@@ -268,21 +272,31 @@ class ControlFlowBuilder (BenignBytecodeVisitorMixin, BytecodeFlowVisitor):
 
     def op_LOAD_FAST (self, i, op, arg, *args, **kws):
         self.cfg.blocks_reads[self.block].add(arg)
+        return super(ControlFlowBuilder, self).op_LOAD_FAST(i, op, arg, *args,
+                                                            **kws)
 
     def op_STORE_FAST (self, i, op, arg, *args, **kws):
         self.cfg.writes_local(self.block, i, arg)
+        return super(ControlFlowBuilder, self).op_STORE_FAST(i, op, arg, *args,
+                                                             **kws)
+
+# ______________________________________________________________________
+
+def build_cfg (func):
+    import byte_flow
+    return ControlFlowBuilder().visit(
+        byte_flow.build_flow(func),
+        opcode_util.get_code_object(func).co_argcount)
 
 # ______________________________________________________________________
 # Main (self-test) routine
 
 def main (*args, **kws):
-    import byteflow
-    flow = byteflow.test_doslice()
-    cfg = ControlFlowBuilder().visit(
-        flow, code_obj = opcode_util.get_code_object(byteflow.doslice))
-    cfg.compute_dataflow()
-    cfg.update_for_ssa()
-    cfg.pprint()
+    import llfuncs
+    if not args:
+        args = ('doslice',)
+    for arg in args:
+        build_cfg(getattr(llfuncs, arg)).pprint()
 
 # ______________________________________________________________________
 
@@ -291,4 +305,4 @@ if __name__ == "__main__":
     main(*sys.argv[1:])
 
 # ______________________________________________________________________
-# End of bytecontrol.py
+# End of byte_control.py

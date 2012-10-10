@@ -7,8 +7,10 @@ import opcode
 # ______________________________________________________________________
 # Module data
 
-hascbranch = [op for op in opcode.hasjrel + opcode.hasjabs
-              if 'IF' in opcode.opname[op] or opcode.opname[op] == 'FOR_ITER']
+hasjump = opcode.hasjrel + opcode.hasjabs
+hascbranch = [op for op in hasjump
+              if 'IF' in opcode.opname[op]
+              or opcode.opname[op] in ('FOR_ITER', 'SETUP_LOOP')]
 
 # Since the actual opcode value may change, manage opcode abstraction
 # data by opcode name.
@@ -28,7 +30,7 @@ OPCODE_MAP = {
     'BINARY_SUBTRACT': (2, 1, None),
     'BINARY_TRUE_DIVIDE': (2, 1, None),
     'BINARY_XOR': (2, 1, None),
-    'BREAK_LOOP': (None, None, None),
+    'BREAK_LOOP': (0, None, 1),
     'BUILD_CLASS': (None, None, None),
     'BUILD_LIST': (-1, 1, None),
     'BUILD_MAP': (None, None, None),
@@ -95,7 +97,7 @@ OPCODE_MAP = {
     'MAKE_FUNCTION': (None, None, None),
     'MAP_ADD': (None, None, None),
     'NOP': (0, None, None),
-    'POP_BLOCK': (None, None, None),
+    'POP_BLOCK': (0, None, 1),
     'POP_EXCEPT': (None, None, None),
     'POP_JUMP_IF_FALSE': (1, None, 1),
     'POP_JUMP_IF_TRUE': (1, None, 1),
@@ -194,11 +196,14 @@ def extendlabels(code, labels = None):
         if op >= dis.HAVE_ARGUMENT:
             i += 2
             label = -1
-            if op in hascbranch:
+            if op in hasjump:
                 label = i
             if label >= 0:
                 if label not in labels:
                     labels.append(label)
+        elif op == opcode.opmap['BREAK_LOOP']:
+            if i not in labels:
+                labels.append(i)
     return labels
 
 # ______________________________________________________________________

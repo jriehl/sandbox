@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 # ______________________________________________________________________
 
+import itertools
+
 import opcode
 from opcode_util import itercode
 
@@ -10,8 +12,17 @@ class BytecodeVisitor (object):
     opnames = [name.split('+')[0] for name in opcode.opname]
 
     def visit_op (self, i, op, arg, *args, **kws):
-        return getattr(self, 'op_' + self.opnames[op])(i, op, arg, *args,
-                                                       **kws)
+        if op < 0:
+            ret_val = self.visit_synthetic_op(i, op, arg, *args, **kws)
+        else:
+            method = getattr(self, 'op_' + self.opnames[op])
+            ret_val = method(i, op, arg, *args, **kws)
+        return ret_val
+
+    def visit_synthetic_op (self, i, op, arg, *args, **kws):
+        raise NotImplementedError(
+            'BytecodeVisitor.visit_synthetic_op() must be overloaded if using '
+            'synthetic opcodes.')
 
     def op_BINARY_ADD (self, i, op, arg, *args, **kws):
         raise NotImplementedError("BytecodeVisitor.op_BINARY_ADD")
@@ -386,27 +397,39 @@ class BytecodeIterVisitor (BytecodeVisitor):
 
 class BytecodeFlowVisitor (BytecodeVisitor):
     def visit (self, flow):
-        self.enter_flow_object(flow)
         self.block_list = list(flow.keys())
         self.block_list.sort()
+        self.enter_flow_object(flow)
         for block in self.block_list:
-            if self.enter_block(block):
-                for i, op, _, arg, args in flow[block]:
-                    self.visit_op(i, op, arg, *args)
+            prelude = self.enter_block(block)
+            prelude_isa_list = isinstance(prelude, list)
+            if prelude or prelude_isa_list:
+                if not prelude_isa_list:
+                    prelude = []
+                new_stmts = list(self.visit_op(i, op, arg, *args)
+                                 for i, op, _, arg, args in flow[block])
+                self.new_flow[block] = list(itertools.chain(
+                    prelude, *new_stmts))
             self.exit_block(block)
         del self.block_list
         return self.exit_flow_object(flow)
 
     def visit_op (self, i, op, arg, *args, **kws):
-        args = [self.visit_op(child_i, child_op, child_arg, *child_args)
-                for child_i, child_op, _, child_arg, child_args in args]
-        return super(BytecodeFlowVisitor, self).visit_op(i, op, arg, *args)
+        new_args = []
+        for child_i, child_op, _, child_arg, child_args in args:
+            new_args.extend(self.visit_op(child_i, child_op, child_arg,
+                                          *child_args))
+        ret_val = super(BytecodeFlowVisitor, self).visit_op(i, op, arg,
+                                                            *new_args)
+        return ret_val
 
     def enter_flow_object (self, flow):
-        pass
+        self.new_flow = {}
 
     def exit_flow_object (self, flow):
-        pass
+        ret_val = self.new_flow
+        del self.new_flow
+        return ret_val
 
     def enter_block (self, block):
         pass
@@ -417,8 +440,8 @@ class BytecodeFlowVisitor (BytecodeVisitor):
 # ______________________________________________________________________
 
 class BenignBytecodeVisitorMixin (object):
-    def _do_nothing (self, *args, **kws):
-        pass
+    def _do_nothing (self, i, op, arg, *args, **kws):
+        return [(i, op, self.opnames[op], arg, args)]
 
     op_BINARY_ADD = _do_nothing
     op_BINARY_AND = _do_nothing
