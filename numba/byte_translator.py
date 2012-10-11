@@ -297,9 +297,13 @@ class LLVMTranslator (BytecodeFlowVisitor):
         return [self.builder.lshr(args[0], args[1])]
 
     def op_BINARY_SUBSCR (self, i, op, arg, *args, **kws):
-        arr_val, index_val = args
-        return [self.builder.gep(
-                arr_val, [index_val, lc.Constant.int(bytetypes.li32, 0)])]
+        arr_val = args[0]
+        index_vals = args[1:]
+        ret_val = gep_result = self.builder.gep(arr_val, index_vals)
+        if (gep_result.type.kind == lc.TYPE_POINTER and
+            gep_result.type.pointee.kind != lc.TYPE_POINTER):
+            ret_val = self.builder.load(gep_result)
+        return [ret_val]
 
     def op_BINARY_SUBTRACT (self, i, op, arg, *args, **kws):
         arg1, arg2 = args
@@ -490,9 +494,9 @@ class LLVMTranslator (BytecodeFlowVisitor):
 
 # ______________________________________________________________________
 
-def translate_function (func, lltype, llvm_module = None):
+def translate_function (func, lltype, llvm_module = None, **kws):
     translator = LLVMTranslator(llvm_module)
-    translator.translate(func, lltype)
+    translator.translate(func, lltype, kws)
     return translator
 
 # ______________________________________________________________________
