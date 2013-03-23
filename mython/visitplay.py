@@ -5,6 +5,33 @@ __DEBUG__ = False
 
 # ______________________________________________________________________
 
+def visitation_generator(tree, builder):
+    data, children = tree
+    child_count = len(children)
+    if child_count > 0:
+        for child in children:
+            yield child
+        transformed_children = builder[-child_count:]
+        del builder[-child_count:]
+    else:
+        transformed_children = []
+    builder.append((data, transformed_children))
+
+def visit(tree):
+    builder = []
+    generators = [visitation_generator(tree, builder)]
+    while generators:
+        #for child in generators[-1]: # XXX Why doesn't this work?
+        try:
+            child = next(generators[-1])
+            try:
+                generators.append(visitation_generator(child, builder))
+            except StopIteration:
+                pass
+        except StopIteration:
+            del generators[-1]
+    return builder[-1]
+
 class TrampolineVisitor(object):
     def send(self, result):
         self.result = result
@@ -46,9 +73,15 @@ class TrampolineVisitor(object):
 # ______________________________________________________________________
 
 def main(*args):
-    tree = (1, [(2, []), (3, [(4, []), (5, [])])])
-    result = TrampolineVisitor().trampoline_visit(tree)
-    assert result == tree, '%s != %s' % (result, tree)
+    t0 = (0,[])
+    t1 = (1,[t0])
+    t2 = (2,[t1])
+    trees = [t0,t1,t2,(1, [(2, []), (3, [(4, []), (5, [])])])]
+    for tree in trees:
+        result0 = visit(tree)
+        assert result0 == tree, '%s != %s' % (result0, tree)
+        result1 = TrampolineVisitor().trampoline_visit(tree)
+        assert result1 == tree, '%s != %s' % (result1, tree)
 
 if __name__ == "__main__":
     import sys
