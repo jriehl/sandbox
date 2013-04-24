@@ -10,7 +10,7 @@ def gen_test(it):
 
 def closure_test(foo):
     def bar(baz):
-        return foo + baz - global_z
+        return foo + (lambda x: x - global_z)(baz)
     return bar
 
 global_z = 98.6
