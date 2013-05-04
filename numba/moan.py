@@ -9,8 +9,10 @@ def gen_test(it):
         yield kernel(other)
 
 def closure_test(foo):
+    foo += 3
     def bar(baz):
-        return foo + (lambda x: x - global_z)(baz)
+        return foo + (lambda x: x - global_z * foo)(baz)
+    foo += 2
     return bar
 
 global_z = 98.6
@@ -33,6 +35,23 @@ class ClassTest1(object):
 
 def len(self):
     return math.sqrt(self.x ** 2 + self.y ** 2 + self.z ** 2)
+
+def exception_test(inmap):
+    temp = object()
+    try:
+        temp.thingy = inmap['foobar']
+    except KeyError:
+        temp.thingy = None
+    finally:
+        del temp
+
+def with_test():
+    with open('moan.py') as me:
+        data = me.read()
+    return data
+
+def param_test(param0 = 0, *args, **kws):
+    assert param0 == len(args) < len(kws)
 
 def main():
     t0 = ClassTest0(2, 3)
