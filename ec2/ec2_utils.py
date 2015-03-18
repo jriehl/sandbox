@@ -97,7 +97,7 @@ def ec2_data_to_ec2_instance_data_type(vm):
         vCPU,
         # Elides a bit of information, but whatevs...
         0 if not storage else storage[u'devices'] * storage[u'size'],
-        network_performance_map[network_performance],
+        network_performance_map.get(network_performance),
         vpc[u'ips_per_eni'],
         linux_price,
         d(pricing[u'mswin']))
@@ -125,7 +125,7 @@ ubuntu_ebs_images = ec2.get_all_images(
     filters={
         'architecture' : 'x86_64',
         'image-type'   : 'machine',
-        'name'         : '*images/ebs*%s*%04d????' % (
+        'name'         : '*images/*%s*%04d????' % (
             UBUNTU_RELEASE,
             datetime.datetime.now().year,),
         })
