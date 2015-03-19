@@ -50,16 +50,22 @@ class Despatcher(object):
                                       flags=self.flags, locals=self.locals,
                                       library=library)
 
-    def get_pipeline_manager(self, py_func, sig, library=None, lifted=(),
-                             func_attr=compiler.DEFAULT_FUNCTION_ATTRIBUTES):
-        '''Returns a non-finalized PipelineManager, populated as if set up by
-        Pipeline._compile_bytecode().
-        '''
+    def get_and_prime_pipeline(self, py_func, sig, library=None, lifted=(),
+                               func_attr=compiler.DEFAULT_FUNCTION_ATTRIBUTES):
         pipeline = self.get_pipeline(sig, library)
         bc = pipeline.extract_bytecode(py_func)
         pipeline.bc = bc
         pipeline.func = py_func
         pipeline.lifted = lifted
+        return pipeline
+
+    def get_pipeline_manager(self, py_func, sig, library=None, lifted=(),
+                             func_attr=compiler.DEFAULT_FUNCTION_ATTRIBUTES):
+        '''Returns a non-finalized PipelineManager, populated as if set up by
+        Pipeline._compile_bytecode().
+        '''
+        pipeline = self.get_and_prime_pipeline(py_func, sig, library, lifted,
+                                               func_attr)
         pm = compiler._PipelineManager()
         if not pipeline.flags.force_pyobject:
             pm.create_pipeline("nopython")
