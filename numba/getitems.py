@@ -42,17 +42,39 @@ def gen_index_i_at_dim(ndim):
             ['return X'])
 
 # ______________________________________________________________________
-# Test code...
+# Our goal?
 
-test_X = np.ones((5,5,5))
-index_i_test_sig = nb.typeof(test_X), nb.intp
-dobj = de.Despatcher()
-exec format_stmt(gen_index_i_at_dim(test_X.ndim))
-pipeline = dobj.get_and_prime_pipeline(index_3i, index_i_test_sig)
-pipeline.stage_analyze_bytecode()
-pipeline.stage_nopython_frontend() # Originally had to get this to type...
-pipeline.stage_annotate_type()
-# Now: pdb.runcall(pipeline.stage_nopython_backend)
+def test(*args):
+    exec format_stmt(gen_index_i_at_dim(2))
+    nb_index_2i = nb.njit(index_2i)
+    Y = np.arange(4).reshape(2,2)
+    assert nb_index_2i(Y, 0) == 0
+    assert nb_index_2i(Y, 1) == 3
+    assert nb_index_2i(Y, -1) == 3
+    return nb_index_2i
+
+# ______________________________________________________________________
+# Main routine...
+
+def main(*args):
+    if len(args):
+        test(*args)
+    else:
+        test_X = np.ones((5,5,5))
+        index_i_test_sig = nb.typeof(test_X), nb.intp
+        dobj = de.Despatcher()
+        exec format_stmt(gen_index_i_at_dim(test_X.ndim))
+        pipeline = dobj.get_and_prime_pipeline(index_3i, index_i_test_sig)
+        pipeline.stage_analyze_bytecode()
+         # Originally had to get this to type here:
+        pipeline.stage_nopython_frontend()
+        pipeline.stage_annotate_type()
+        # Then had to write code generation here:
+        pipeline.stage_nopython_backend()
+
+if __name__ == "__main__":
+    import sys
+    main(*sys.argv[1:])
 
 # ______________________________________________________________________
 # End of getitems.py
