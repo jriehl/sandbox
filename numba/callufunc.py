@@ -13,11 +13,10 @@ def myuadd(a0, a1):
 
 from numba import types, typing
 from numba.targets import npyimpl
-from numba.typing.npydecl import builtin_global, Numpy_rules_ufunc
 _any = types.Any
 
 def _numba_ufunc(ufunc):
-    class typing_class(Numpy_rules_ufunc):
+    class typing_class(typing.npydecl.Numpy_rules_ufunc):
         key = ufunc
     typing_class.__name__ = "resolve_{0}".format(ufunc.__name__)
     return types.Function(typing_class)
