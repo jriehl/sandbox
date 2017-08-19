@@ -51,6 +51,7 @@ class TileMap (object):
     def __init__ (self, tileSurf, tileSize, mapSize):
         self.tileSurf = tileSurf
         self.tileSize = tileSize
+        self.entrance = 0, 0
         self.makeMap(mapSize)
 
     # ____________________________________________________________
@@ -60,6 +61,7 @@ class TileMap (object):
         result = list(map(lambda x: [x] * dx, result))
         self.map = result
         self.mapSize = mapSize
+        self.boundRect = Rect(0, 0, dx, dy)
 
     # ____________________________________________________________
     def getTileRect (self, index):
@@ -108,6 +110,7 @@ class TileMap (object):
                 if (v & ENTRANCE) > 0:
                     self.map[my + 1][mx + 1] = ENTRANCE
                     print("ENTRANCE:{}".format((mx + 1, my + 1)))
+                    self.entrance = mx + 1, my + 1
                 elif somethingHere:
                     self.map[my + 1][mx + 1] = ROOM
                 # NORTH WEST
