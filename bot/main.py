@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template, send_file
 from rivescript import RiveScript
 
 bot = RiveScript()
@@ -37,7 +37,11 @@ def reply():
 
 @app.route('/')
 def hello():
-    return 'Hello World!'
+    return render_template('index.html')
+
+@app.route('/script.js')
+def script():
+    return send_file('static/script.js')
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)

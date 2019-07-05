@@ -9,8 +9,8 @@
 ! var master = jriehl
 
 // Bot Variables
-! var name     = Bottie
-! var fullname = Bottie Rive
+! var name     = Jonbot
+! var fullname = Jonbot Rive
 ! var age      = 0
 ! var birthday = July 4
 ! var sex      = male

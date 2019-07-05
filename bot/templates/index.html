@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}Jonbot{% endblock %}
+
+{% block content %}
+    <div class="chat">
+        <div class="messages"></div>
+        <div id="edge"></div>
+        <form class="actions">
+                <input type="text" placeholder="press 'Enter' to send...">
+        </form>
+    </div>
+    <script src="./script.js"></script>
+{% endblock %}

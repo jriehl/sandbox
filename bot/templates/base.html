@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+    <head>
+        <title>{% block title %}{% endblock %}</title>
+        <style>
+            * {
+                font-family: Arial;
+                font-size: 12pt;
+            }
+            .chat {
+                width: 400px;
+                height: 90%;
+                position: fixed;
+                overflow: scroll;
+            }
+            .actions {
+                position: fixed;
+                bottom: 0;
+                display: block;
+                width: 100%;
+            }
+            .actions input{
+                height: 30px;
+                display: block;
+                width: 100%;
+                outline: 0;
+                border-top: 0;
+                border-left: 0;
+                border-right: 0;
+            }
+            .messages div {
+                max-width: 60%;
+                display: block;
+                margin: 5px;
+                padding: 10px;
+                border-radius: 7px;
+            }
+            .messages .bot {
+                text-align: left;
+                margin-right: auto;
+                background: #001f3f;
+                color: white;
+            }
+            .messages .self {
+                text-align: right;
+                margin-left: auto;
+                background: #DDD
+            }
+        </style>
+    </head>
+    <body>
+        <nav>
+            <h1>Jonbot</h1>
+        </nav>
+        <section class="content">
+            <header>
+                {% block header %}{% endblock %}
+            </header>
+            {% block content %}{% endblock %}
+        </section>
+    </body>
+</html>
