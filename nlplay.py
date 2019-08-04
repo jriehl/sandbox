@@ -4,21 +4,24 @@ import rdflib
 from rdflib.namespace import RDF, RDFS
 
 def tree_to_rdf(graph, branch):
+    'Recursively translate from a NLTK tree into a RDF graph.'
     if isinstance(branch, nltk.Tree):
         result = rdflib.BNode()
         graph.add((result, RDFS.label, rdflib.Literal(branch.label())))
         graph.add((result, RDF.type, RDF.Seq))
         for index, subbranch in enumerate(branch):
-            graph.add((result, getattr(RDF, f'{index + 1}'), tree_to_rdf(graph, subbranch)))
+            graph.add((result, RDF[index + 1], tree_to_rdf(graph, subbranch)))
     else:
         result = rdflib.Literal(branch)
     return result
 
 def rdf_to_tree(graph, root):
+    'Recursively translate from a RDF tree to a NLTK tree.'
     if isinstance(root, rdflib.Literal):
-        result = root.toPython()
+        result = root.value
     else:
-        label = list(graph[root:RDFS.label])[0].toPython()
+        labels = list(graph[root:RDFS.label])
+        label = labels[0].value if labels else None
         seq = graph.seq(root)
         if seq is None:
             children = []
@@ -26,6 +29,10 @@ def rdf_to_tree(graph, root):
             children = [rdf_to_tree(graph, child) for child in seq]
         result = nltk.Tree(label, children)
     return result
+
+def get_roots(graph):
+    'Find all parse tree root nodes in the given graph.'
+    return list(graph[:RDFS.label:rdflib.Literal('ROOT')])
 
 def main():
     parser = nltk.parse.CoreNLPParser()
