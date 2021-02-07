@@ -15,7 +15,29 @@ export namespace Tree {
         );
     }
 
-    export interface TreeVisitor<T, U> {
-        visitPrefix(node: Node<T> | null): U;
+    export abstract class TreeVisitor<T, U> {
+        public abstract visitPrefix(node: Node<T> | null): U;
+    }
+
+    export class VoidVisitor<T> extends TreeVisitor<T, void> {
+        constructor(
+            public visit: (node: Node<T>) => void
+        ) {
+            super();
+        }
+
+        public visitPrefix(node: Node<T> | null): void {
+            if (node != null) {
+                this.visit(node);
+                this.visitPrefix(node.left);
+                this.visitPrefix(node.right);
+            }
+        }
+    }
+
+    class DummyVisitor extends VoidVisitor<i32> {
+        constructor() {
+            super((node: Node<i32>) => {});
+        }
     }
 }
