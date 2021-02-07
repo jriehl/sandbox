@@ -1,0 +1,4 @@
+node_modules/
+build/
+tests/ts-index.js
+assembly/*.js
