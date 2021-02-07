@@ -1,0 +1,28 @@
+{
+  "name": "issue1635",
+  "version": "1.0.0",
+  "description": "Test for my version of AssemblyScript issue #1635.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node tests",
+    "asbuild:untouched": "asc assembly/index.ts --target debug",
+    "asbuild:optimized": "asc assembly/index.ts --target release",
+    "asbuild": "npm run asbuild:untouched && npm run asbuild:optimized"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jriehl/sandbox.git"
+  },
+  "author": "Jon Riehl",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jriehl/sandbox/issues"
+  },
+  "homepage": "https://github.com/jriehl/sandbox#readme",
+  "dependencies": {
+    "@assemblyscript/loader": "^0.18.5"
+  },
+  "devDependencies": {
+    "assemblyscript": "^0.18.5"
+  }
+}
