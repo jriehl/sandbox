@@ -7,18 +7,30 @@ class MetaMagics(Magics):
     
     def __init__(self, *args, **kws):
         super().__init__(*args, **kws)
-        self.__myenv = kws
-    
+        self.__myenv = {'self': self}
+        self.__myenv.update(kws)
+
     @line_magic
     def myline(self, line):
-        print(self.__myenv)
         return eval(compile(parse(line, mode='eval'), '<line-magic>', 'eval'))
 
     @cell_magic
     def mycell(self, line, cell):
-        myline = eval(compile(parse(line, mode='eval'), '<cell-magic-line>', 'eval'))
-        return myline, parse(cell, mode='exec')
-    
+        # Interesting note: the empty string is NOT checked or supported by ast.parse()...
+        line_val = None
+        if line:
+            line_ast = parse(line, mode='eval')
+            line_co = compile(line_ast, '<cell-magic-line>', 'eval')
+            line_val = eval(line_co, globals(), self.__myenv)
+        self.__myenv.update(locals())
+        if callable(line_val):
+            cell_val = line_val(cell, **self.__myenv)
+        else:
+            cell_ast = parse(cell)
+            cell_co = compile(cell_ast, '<cell-magic>', 'exec')
+            cell_val = exec(cell_co, globals(), self.__myenv)
+        return line_val, cell_val
+
     @cell_magic
     def mybug(self, _, cell):
         return eval(compile(parse(cell, mode='exec'), '<cell-magic>', 'exec'))
