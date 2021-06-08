@@ -37,3 +37,6 @@ pip-log.txt
 .vscode/
 
 .ipynb_*
+lextab.py
+parser.out
+yacctab.py
