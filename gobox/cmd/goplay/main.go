@@ -1,4 +1,4 @@
-/* goplay: Reads a Go source file and print its AST.
+/* goplay: Reads a Go source file and prints its AST.
    Example:
    $ go build ./cmd/goplay && ./goplay cmd/goplay/main.go
 */
@@ -6,10 +6,11 @@
 package main
 
 import (
-	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
+
+	"github.com/jriehl/sandbox/tree/master/gobox/pkg/astplay"
 )
 
 func main() {
@@ -21,9 +22,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = ast.Print(fset, node)
-	if err != nil {
-		panic(err)
-	}
+	astplay.Display(astplay.NewASTFramePtr(node))
 	os.Exit(0)
 }
