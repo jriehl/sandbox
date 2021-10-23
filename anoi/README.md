@@ -1,8 +1,8 @@
 A Network of Ideas
 ==================
 
-A stab in the dark towards concept oriented programming.
-Original proposal: https://wildideas.org/anoi/
+A stab in the dark towards concept oriented programming combined with a
+semantic wiki.  Original proposal: https://wildideas.org/anoi/
 
 Design
 ------
@@ -38,6 +38,7 @@ Articles have the following properties:
 - Author(s)? -> List of People, FIXME: Need parametric types.
 - Date -> Date
 - Origin -> Media
+- Lexicon -> List (stack) of Tries
 
 #### Article Creation Workflow
 
@@ -50,7 +51,7 @@ Articles have the following properties:
 - (?) Add title to top of lexicon stack
 - Create timestamp atom and store UTC string as Unicode vector.
 - Convert wiki links to corresponding UIDs, then compress the remainder using
-  subsequent lexicon stacks.  Warnings:
+  subsequent tries in the lexicon stack.  Warnings:
   - This may screw things up if the lexicon doesn't have a 1:1 correspondence
     with titles.  Possible fix: add alias dimension to lexicon keys.
 
