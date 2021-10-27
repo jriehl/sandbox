@@ -12,11 +12,12 @@ import redis
 
 class ANOIReserved(enum.Enum):
     NIL = 0x0  # None, by any other name...
-    POS = 0xe000  # Start of private-use Unicode code points (up to 0xf8ff).
-    NEG = 0xe001
-    PARENT = 0xe002
-    REF = 0xe003
-    TIME = 0xe004
+    ROOT = 0xe000  # Start of private-use Unicode code points (up to 0xf8ff).
+    POS = 0xe001
+    NEG = 0xe002
+    PARENT = 0xe003
+    REF = 0xe004
+    TIME = 0xe005
     MIN_UNRESERVED = 0x110000 # One more than last Unicode code point...
 
 
@@ -75,8 +76,6 @@ class ANOIInMemorySpace(ANOISpace):
 
     def cross_equals(self, uid0: int, uid1: int, uid2: int) -> None:
         self.check(uid0)
-        self.check(uid1)
-        self.check(uid2)
         uid_map = self.uid_map[uid0]
         uid_map[uid1] = uid2
 
@@ -158,6 +157,7 @@ class ANOIRedis32Space(ANOISpace):
         assert result == 1, f'Operation {uid0} x {uid1} = {uid2} failed'
 
     def free_uid(self, uid: int) -> None:
+        self.check(uid)
         uid_bytes = self.itob(uid)
         uid_key = self.namespace + uid_bytes
         self.db.delete(uid_key)
@@ -193,16 +193,19 @@ class ANOIRedis32Space(ANOISpace):
 
     def set_content(self, uid: int, content: Tuple[int]) -> None:
         self.check(uid)
-        self.db.hset(self.content_key, self.istob(content))
+        uid_bytes = self.itob(uid)
+        content_bytes = self.istob(content)
+        self.db.hset(self.content_key, uid_bytes, content_bytes)
 
 
-class ANOISimpleTrie:
-    def __init__(self, space: ANOISpace, root: int):
+class ANOITrie:
+    def __init__(self, space: ANOISpace, root: int = ANOIReserved.ROOT.value):
         self.space = space
         self.root = root
 
     def create_node(self, prev_uid: int, key_uid: int) -> int:
         ret_val = self.space.get_uid()
+        self.space.cross_equals(ret_val, ANOIReserved.PARENT.value, prev_uid)
         self.space.cross_equals(prev_uid, key_uid, ret_val)
         return ret_val
 
@@ -220,6 +223,8 @@ class ANOISimpleTrie:
             while (i < len(vec)) and (ret_val != NIL):
                 ret_val = cross(ret_val, vec[i])
                 i = i + 1
+            if ret_val != NIL:
+                ret_val = cross(ret_val, ANOIReserved.REF.value)
         return ret_val
 
     def has_name(self, name: str) -> bool:
@@ -241,7 +246,7 @@ class ANOISimpleTrie:
             crnt_uid = self.root
             # Handle vec[i - 1] x vec[i]
             i = 0
-            while (i < (len(vec) - 1)) and (crnt_uid != NIL):
+            while (i < len(vec)) and (crnt_uid != NIL):
                 prev_uid = crnt_uid
                 crnt_uid = cross(crnt_uid, vec[i])
                 i = i + 1
@@ -249,67 +254,40 @@ class ANOISimpleTrie:
                 # We had a miss and need to back up one.
                 i = i - 1
                 crnt_uid = prev_uid
-                while (i < (len(vec) - 1)):
+                while i < len(vec):
                     crnt_uid = self.create_node(crnt_uid, vec[i])
                     i = i + 1
-            cross_eq(crnt_uid, vec[-1], uid)
+            cross_eq(crnt_uid, ANOIReserved.REF.value, uid)
             ret_val = uid
         return ret_val
 
 
-class ANOITrie(ANOISimpleTrie):
-    def __init__(self, base: ANOISimpleTrie, root: int):
-        self.base = base
-        assert self.base.has_name('REF')
-        assert self.base.has_name('PARENT')
-        self.space = self.base.space
-        self.root = root
-        self.ref = self.base.get_name('REF')
-        self.parent = self.base.get_name('PARENT')
+def compress_iter(trie: ANOITrie, uid_vec: Tuple[int]) -> Iterator[int]:
+    cross = trie.space.cross
+    NIL = ANOIReserved.NIL.value
+    REF = ANOIReserved.REF.value
+    i = 0
+    uid_vec_len = len(uid_vec)
+    while i < uid_vec_len:
+        crnt_uid = cross(trie.root, uid_vec[i])
+        last_good_ref = NIL
+        last_good_pos = i
+        j = i + 1
+        while (j < uid_vec_len) and (NIL != crnt_uid):
+            crnt_ref = cross(crnt_uid, REF)
+            if NIL != crnt_ref:
+                last_good_ref = crnt_ref
+                last_good_pos = j
+            crnt_uid = cross(crnt_uid, uid_vec[j])
+            j = j + 1
+        if last_good_ref == NIL:
+            # We got nothing, so yield the first UID...
+            yield uid_vec[i]
+            i = i + 1
+        else:
+            # Yield the largest match we found...
+            yield last_good_ref
+            i = last_good_pos
 
-    def compress_iter(self, uid_vec: Tuple[int]) -> Iterator[int]:
-        cross = self.space.cross
-        NIL = ANOIReserved.NIL.value
-        i = 0
-        uid_vec_len = len(uid_vec)
-        while i < uid_vec_len:
-            crnt_uid = cross(self.root, uid_vec[i])
-            last_good_ref = NIL
-            last_good_pos = i
-            j = i + 1
-            while (j < uid_vec_len) and (NIL != crnt_uid):
-                crnt_ref = cross(crnt_uid, self.ref)
-                if NIL != crnt_ref:
-                    last_good_ref = crnt_ref
-                    last_good_pos = j
-                crnt_uid = cross(crnt_uid, uid_vec[j])
-                j = j + 1
-            if last_good_ref == NIL:
-                # We got nothing, so yield the first UID...
-                yield uid_vec[i]
-                i = i + 1
-            else:
-                # Yield the largest match we found...
-                yield last_good_ref
-                i = last_good_pos
-
-    def compress(self, uid_vec: Tuple[int]) -> Tuple[int]:
-        return tuple(self.compress_iter(uid_vec))
-
-    def create_node(self, prev_uid, key_uid):
-        ret_val = self.space.get_uid()
-        # The Python 2 version of this explicitly set ret_val x REF to NIL,
-        # but this is redundant since the cross method returns NIL if the
-        # result of UID x REF isn't found.
-        self.space.cross_equals(ret_val, self.parent, prev_uid)
-        self.space.cross_equals(prev_uid, key_uid, ret_val)
-        return ret_val
-
-    def get_vector(self, vec: Tuple[int]) -> int:
-        '''Gets ROOT x vec[0] x vec[1] x ... x vec[n-1] x REF.'''
-        return super().get_vector(tuple(itertools.chain(vec, (self.ref,))))
-
-    def set_vector(self, vec: Tuple[int], uid: int) -> int:
-        '''Sets ROOT x vec... x REF = uid.'''
-        return super().set_vector(
-            tuple(itertools.chain(vec, (self.ref,))), uid)
+def compress(trie: ANOITrie, uid_vec: Tuple[int]) -> Tuple[int]:
+    return tuple(compress_iter(trie, uid_vec))

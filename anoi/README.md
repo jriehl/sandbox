@@ -4,8 +4,8 @@ A Network of Ideas
 A stab in the dark towards concept oriented programming combined with a
 semantic wiki.  Original proposal: https://wildideas.org/anoi/
 
-Design
-------
+ANOI Design
+-----------
 
 ### Types
 
@@ -55,6 +55,11 @@ Articles have the following properties:
   - This may screw things up if the lexicon doesn't have a 1:1 correspondence
     with titles.  Possible fix: add alias dimension to lexicon keys.
 
+Design Internals
+----------------
+
+TODO.
+
 TODO's
 ------
 - [ ] Port to Unicode
@@ -63,8 +68,10 @@ TODO's
   - [ ] Unit tests of port
 - [ ] Loaders
   - [ ] Markdown
-  - [ ] HTML
-  - [ ] Latex
+  - [ ] Media
+  - [ ] HTML: via markdownify
+  - [ ] Jupyter notebooks: via nbconvert (to markdown)
+  - [ ] Latex: via LaTeX2HTML
   - [ ] PDF
   - [ ] WordNet
   - [ ] Dbpedia
@@ -124,3 +131,25 @@ markdown trees:
 ```
 
 *Shudder*...
+
+### 2021.10.24
+
+I'm breaking the design into two pieces:
+* ANOI Design, which gives an _external_ design of spatial characteristics.
+* Design Internals, which specifies the _internal_ design of support software.
+
+Ideally, we'd like to bootstrap this into it's own domain-specific language and
+self host via some predefined "boot" sequence, but that's going to require
+some infrastructure first.
+
+That kinda leads me in some weird directions.  For example, how do you code a
+presentation layer in the DSL without some notion of a byte?  Maybe we should
+have a UID range or set for the various "puns" that already exist in the ANOI
+design.
+
+```
+BYTE := 0 <= UID < 256
+CODE_POINT := 0 <= UID < 0x110000
+MEDIA := vec<BYTE>
+STRING := vec<CODE_POINT>
+```
