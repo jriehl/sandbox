@@ -1,7 +1,6 @@
 import unittest
 
 import redis
-from redis.client import PubSub
 
 import anoi
 
