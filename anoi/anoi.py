@@ -3,9 +3,9 @@
 
 import abc
 import enum
-import itertools
+import functools
 import struct
-from typing import Dict, Iterator, Optional, Tuple
+from typing import Dict, Iterator, Optional, Tuple, Union
 
 import redis
 
@@ -13,12 +13,17 @@ import redis
 class ANOIReserved(enum.Enum):
     NIL = 0x0  # None, by any other name...
     ROOT = 0xe000  # Start of private-use Unicode code points (up to 0xf8ff).
-    POS = 0xe001
-    NEG = 0xe002
-    PARENT = 0xe003
-    REF = 0xe004
-    TIME = 0xe005
+    PARENT = 0xe001
+    REF = 0xe002
     MIN_UNRESERVED = 0x110000 # One more than last Unicode code point...
+
+
+class ANOIBootstrapped(enum.Enum):
+    TYPE = enum.auto()
+    NAME = enum.auto()
+    TIME = enum.auto()
+    NEXT = enum.auto()
+    PREV = enum.auto()
 
 
 class ANOISpace(abc.ABC):
@@ -57,6 +62,11 @@ class ANOISpace(abc.ABC):
 
     def set_content(self, uid: int, content: Tuple[int]) -> None:
         '''Associates the given content with a UID.'''
+        raise NotImplementedError()
+
+    def validate(self, uid: int) -> bool:
+        '''Ensure a given UID is valid, returning true if the UID was already
+        valid, false otherwise.'''
         raise NotImplementedError()
 
 
@@ -107,6 +117,13 @@ class ANOIInMemorySpace(ANOISpace):
     def set_content(self, uid: int, content: Tuple[int]) -> None:
         self.check(uid)
         self.uid_content[uid] = content
+
+    def validate(self, uid: int) -> bool:
+        if self.is_valid(uid):
+            return True
+        self.uid_map[uid] = {}
+        self.uid_content[uid] = ()
+        return False
 
 
 class ANOIRedis32Space(ANOISpace):
@@ -197,6 +214,13 @@ class ANOIRedis32Space(ANOISpace):
         content_bytes = self.istob(content)
         self.db.hset(self.content_key, uid_bytes, content_bytes)
 
+    def validate(self, uid: int) -> bool:
+        if self.is_valid(uid):
+            return True
+        uid_bytes = self.itob(uid)
+        self.db.hset(self.content_key, uid_bytes, b'')
+        return False
+
 
 class ANOITrie:
     def __init__(self, space: ANOISpace, root: int = ANOIReserved.ROOT.value):
@@ -206,6 +230,7 @@ class ANOITrie:
     def create_node(self, prev_uid: int, key_uid: int) -> int:
         ret_val = self.space.get_uid()
         self.space.cross_equals(ret_val, ANOIReserved.PARENT.value, prev_uid)
+        self.space.cross_equals(ret_val, ANOIReserved.ROOT.value, self.root)
         self.space.cross_equals(prev_uid, key_uid, ret_val)
         return ret_val
 
@@ -228,8 +253,7 @@ class ANOITrie:
         return ret_val
 
     def has_name(self, name: str) -> bool:
-        vec = tuple(ord(cp) for cp in name)
-        return self.get_vector(vec) != ANOIReserved.NIL.value
+        return self.get_name(name) != ANOIReserved.NIL.value
 
     def set_name(self, name: str, uid: int) -> int:
         vec = tuple(ord(cp) for cp in name)
@@ -291,3 +315,59 @@ def compress_iter(trie: ANOITrie, uid_vec: Tuple[int]) -> Iterator[int]:
 
 def compress(trie: ANOITrie, uid_vec: Tuple[int]) -> Tuple[int]:
     return tuple(compress_iter(trie, uid_vec))
+
+def build_boot_trie(space: ANOISpace) -> ANOITrie:
+    '''Build the boot trie for a space.'''
+    boot_trie = ANOITrie(space)
+    for reserved in ANOIReserved:
+        space.validate(reserved.value)
+        trie_uid = boot_trie.set_name(reserved.name, reserved.value)
+        space.cross_equals(reserved.value, boot_trie.root, trie_uid)
+    for suggested in ANOIBootstrapped:
+        target_uid = space.get_uid()
+        trie_uid = boot_trie.set_name(suggested.name, target_uid)
+        space.cross_equals(target_uid, boot_trie.root, trie_uid)
+    return boot_trie
+
+def get_boot_trie(space: ANOISpace) -> ANOITrie:
+    # TODO: More type checking than just validity on ROOT atom?
+    if not space.is_valid(ANOIReserved.ROOT.value):
+        boot_trie = build_boot_trie(space)
+    else:
+        boot_trie = ANOITrie(space)
+    return boot_trie
+
+@functools.cache
+def get_boot_map(
+        boot_trie: ANOITrie
+    ) -> Dict[Union[ANOIReserved, ANOIBootstrapped], int]:
+    result = {}
+    for enumeration in (ANOIReserved, ANOIBootstrapped):
+        for key in enumeration:
+            value = boot_trie.get_name(key.name)
+            if value == ANOIReserved.NIL.value:
+                raise ValueError(
+                    f'Bootstrapped name {key.name} not found in boot trie')
+            result[key] = value
+    return result
+
+
+class ANOINamespace(ANOITrie):
+    def __init__(
+        self,
+        space: ANOISpace,
+        name: str,
+        basis_uid: Optional[int] = None
+    ):
+        self.name = name
+        if basis_uid is None:
+            basis_trie = get_boot_trie(space)
+        else:
+            basis_trie = ANOITrie(space, basis_uid)
+        self.basis = basis_trie
+        root = basis_trie.get_name(name)
+        if root == ANOIReserved.NIL.value:
+            root = space.get_uid()
+            basis_tail = basis_trie.set_name(name, root)
+            space.cross_equals(root, ANOIReserved.ROOT.value, basis_tail)
+        super().__init__(space, root)

@@ -58,7 +58,7 @@ Articles have the following properties:
 Design Internals
 ----------------
 
-TODO.
+"Boot" trie @ ROOT.  What does "boot" mean in this context?
 
 TODO's
 ------
@@ -153,3 +153,38 @@ CODE_POINT := 0 <= UID < 0x110000
 MEDIA := vec<BYTE>
 STRING := vec<CODE_POINT>
 ```
+
+### 2021.10.27
+
+Today's plan:
+
+1. ✔ Download WordNet 3.1 [here](https://wordnet.princeton.edu/download/current-version)
+2. Write loader
+3. Load into a test space
+4. Initial article loader, which is a simple compress call on the input string
+5. Verify compression (and linking) is happening
+
+#### Aside:
+
+* How can I store UTF-8 strings in a binary space without using all 4 bytes
+  per code point (which ANOIRedis32Space does)?  One possibility is to "pun"
+  since bytes are valid code points, but even then, any code point above 127
+  would incur a double encoding penalty, creating a possible 8 byte worst case
+  size. ATF? ANOI transfer format (ATF-8), which follows UTF-8 rules taken to
+  arbitrary bit depth.
+
+| First UID | Last UID | Byte 1 | Byte 2 | Byte 3 | Byte 4 | Byte 5 | Byte 6 | Byte 7 |Bits|
+|----------:|---------:|--------|--------|--------|--------|--------|--------|--------|----:|
+| 0         | 0x7f     | 0xxxxxxx |      |        |        |        |        |        | 7   |
+| 0x80      | 0x7ff    | 110xxxxx | 10xxxxxx |    |        |        |        |        | 11  |
+| 0x800     | 0xffff   | 1110xxxx | 10xxxxxx | 10xxxxxx |  |        |        |        | 16  |
+| 0x10000   | 0x1fffff | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx ||        |        | 21  |
+| 0x200000  | 0x3ffffff| 111110xx | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx||       | 26  |
+| 0x4000000 |0x7fffffff| 1111110x | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx||31|
+| 0x80000000|0xfffffffff|11111110 | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx |36|
+|0x1000000000|2\*\*41-1 |11111111 | 100xxxxx | ...      |          |          |          |          |41|
+| 2\*\*41    |2\*\*46-1 |11111111 | 1010xxxx | ...      |          |          |          |          |46|
+
+So for _n_ bytes, _n >= 2_, there are _11 + 5 \* (n - 2)_ bits available,
+meaning 64-bit integers can blow up to 13 bytes under this encoding (12 bytes,
+61 bits -> (2\*\*62-1) < (2\*\*64-1) < (2\*\*66-1) <- 13 bytes, 66 bits).

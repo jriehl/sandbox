@@ -64,6 +64,7 @@ class TestANOISpaces(unittest.TestCase):
         self.assertRaises(ValueError, space.check, uid0)
         self.assertRaises(ValueError, space.check, uid1)
         self.assertRaises(ValueError, space.check, uid2)
+        # TODO: Test validate().
 
     def test_inmemory_space(self):
         self._check_space(anoi.ANOIInMemorySpace())
