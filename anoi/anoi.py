@@ -78,8 +78,8 @@ class ANOIInMemorySpace(ANOISpace):
         self.uid_content: Dict[int, Tuple[int]] = {}
 
     def cross(self, uid0: int, uid1: int) -> int:
+        self.check(uid0)  # Force a value error before we raise a key error.
         uid_map = self.uid_map[uid0]
-        self.check(uid1)
         if uid1 in uid_map:
             return uid_map[uid1]
         return ANOIReserved.NIL.value
@@ -347,7 +347,7 @@ def root_trie(space: ANOISpace) -> ANOITrie:
 
 class ANOITrieProxy:
     def __init__(self, trie: ANOITrie):
-        self.__trie__ = trie
+        self.__dict__['__trie__'] = trie
 
     def __getattr__(self, name: str) -> int:
         return self.__trie__.get_name(name)
