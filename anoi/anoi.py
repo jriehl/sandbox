@@ -5,7 +5,7 @@ import abc
 import enum
 import functools
 import struct
-from typing import Dict, Iterator, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, Optional, Tuple
 
 import redis
 
@@ -222,9 +222,14 @@ class ANOIRedis32Space(ANOISpace):
         return False
 
 
+def str_to_vec(in_str: str) -> Tuple[int]:
+    return tuple(ord(cp) for cp in in_str)
+
+
 class ANOITrie:
     def __init__(self, space: ANOISpace, root: int = ANOIReserved.ROOT.value):
         self.space = space
+        self.space.validate(root)
         self.root = root
 
     def create_node(self, prev_uid: int, key_uid: int) -> int:
@@ -235,8 +240,7 @@ class ANOITrie:
         return ret_val
 
     def get_name(self, name: str) -> int:
-        vec = tuple(ord(cp) for cp in name)
-        return self.get_vector(vec)
+        return self.get_vector(str_to_vec(name))
 
     def get_vector(self, vec: Tuple[int]) -> int:
         ret_val = ANOIReserved.NIL.value
@@ -256,8 +260,7 @@ class ANOITrie:
         return self.get_name(name) != ANOIReserved.NIL.value
 
     def set_name(self, name: str, uid: int) -> int:
-        vec = tuple(ord(cp) for cp in name)
-        return self.set_vector(vec, uid)
+        return self.set_vector(str_to_vec(name), uid)
 
     def set_vector(self, vec: Tuple[int], uid: int) -> int:
         ret_val = ANOIReserved.NIL.value
@@ -282,6 +285,9 @@ class ANOITrie:
                     crnt_uid = self.create_node(crnt_uid, vec[i])
                     i = i + 1
             cross_eq(crnt_uid, ANOIReserved.REF.value, uid)
+            # XXX Not sure I like the following convention, but it allows us
+            # to backchain the name for a given trie.
+            cross_eq(uid, self.root, crnt_uid)
             ret_val = uid
         return ret_val
 
@@ -316,40 +322,48 @@ def compress_iter(trie: ANOITrie, uid_vec: Tuple[int]) -> Iterator[int]:
 def compress(trie: ANOITrie, uid_vec: Tuple[int]) -> Tuple[int]:
     return tuple(compress_iter(trie, uid_vec))
 
-def build_boot_trie(space: ANOISpace) -> ANOITrie:
+def build_root_trie(space: ANOISpace) -> ANOITrie:
     '''Build the boot trie for a space.'''
-    boot_trie = ANOITrie(space)
+    root_trie = ANOITrie(space)
     for reserved in ANOIReserved:
         space.validate(reserved.value)
-        trie_uid = boot_trie.set_name(reserved.name, reserved.value)
-        space.cross_equals(reserved.value, boot_trie.root, trie_uid)
-    for suggested in ANOIBootstrapped:
+        trie_uid = root_trie.set_name(reserved.name, reserved.value)
+        space.cross_equals(reserved.value, root_trie.root, trie_uid)
+    for bootstrapped in ANOIBootstrapped:
         target_uid = space.get_uid()
-        trie_uid = boot_trie.set_name(suggested.name, target_uid)
-        space.cross_equals(target_uid, boot_trie.root, trie_uid)
-    return boot_trie
-
-def get_boot_trie(space: ANOISpace) -> ANOITrie:
-    # TODO: More type checking than just validity on ROOT atom?
-    if not space.is_valid(ANOIReserved.ROOT.value):
-        boot_trie = build_boot_trie(space)
-    else:
-        boot_trie = ANOITrie(space)
-    return boot_trie
+        trie_uid = root_trie.set_name(bootstrapped.name, target_uid)
+        space.cross_equals(target_uid, root_trie.root, trie_uid)
+    return root_trie
 
 @functools.cache
-def get_boot_map(
-        boot_trie: ANOITrie
-    ) -> Dict[Union[ANOIReserved, ANOIBootstrapped], int]:
-    result = {}
-    for enumeration in (ANOIReserved, ANOIBootstrapped):
-        for key in enumeration:
-            value = boot_trie.get_name(key.name)
-            if value == ANOIReserved.NIL.value:
-                raise ValueError(
-                    f'Bootstrapped name {key.name} not found in boot trie')
-            result[key] = value
+def root_trie(space: ANOISpace) -> ANOITrie:
+    # TODO: More type checking than just validity on ROOT atom?
+    if not space.is_valid(ANOIReserved.ROOT.value):
+        result = build_root_trie(space)
+    else:
+        result = ANOITrie(space)
     return result
+
+
+class ANOITrieProxy:
+    def __init__(self, trie: ANOITrie):
+        self.__trie__ = trie
+
+    def __getattr__(self, name: str) -> int:
+        return self.__trie__.get_name(name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        self.__trie__.set_name(name, int(value))
+
+    def __getitem__(self, item: Any) -> int:
+        return self.__trie__.get_name(str(item))
+
+    def __setitem__(self, item: Any, value: Any) -> None:
+        self.__trie__.set_name(str(item), int(value))
+
+    @classmethod
+    def root(cls, space: ANOISpace):
+        return cls(root_trie(space))
 
 
 class ANOINamespace(ANOITrie):
@@ -361,13 +375,29 @@ class ANOINamespace(ANOITrie):
     ):
         self.name = name
         if basis_uid is None:
-            basis_trie = get_boot_trie(space)
+            basis_trie = root_trie(space)
         else:
             basis_trie = ANOITrie(space, basis_uid)
         self.basis = basis_trie
-        root = basis_trie.get_name(name)
-        if root == ANOIReserved.NIL.value:
-            root = space.get_uid()
-            basis_tail = basis_trie.set_name(name, root)
-            space.cross_equals(root, ANOIReserved.ROOT.value, basis_tail)
-        super().__init__(space, root)
+        self.TYPE = basis_trie.get_name('TYPE')
+        self.NAME = basis_trie.get_name('NAME')
+        my_root = basis_trie.get_name(name)
+        if my_root == ANOIReserved.NIL.value:
+            my_root = space.get_uid()
+            basis_tail = basis_trie.set_name(name, my_root)
+            space.cross_equals(my_root, ANOIReserved.ROOT.value, basis_tail)
+        super().__init__(space, my_root)
+
+    def set_name(self, name: str, uid: int) -> int:
+        result = super().set_name(name, uid)
+        self.space.set_content(result, str_to_vec(name))
+        self.space.cross_equals(result, self.TYPE, self.NAME)
+        return result
+
+
+@functools.cache
+def anoi_types(space: ANOISpace) -> ANOITrieProxy:
+    result = ANOITrieProxy(ANOINamespace(space, 'types'))
+    for builtin in ('STRING',):
+        result[builtin] = space.get_uid()
+    return result

@@ -9,7 +9,15 @@ ANOI Design
 
 ### Types
 
-TODO.
+Types have the following properties:
+- Type -> Type (Type)
+- Name -> String (Is this strictly necessary?)
+- Properties -> List of Property
+
+#### Properties
+
+- Type -> Type (Property)
+- Name -> String (Again, might this be optional?)
 
 ### Strings
 
@@ -173,14 +181,14 @@ Today's plan:
   size. ATF? ANOI transfer format (ATF-8), which follows UTF-8 rules taken to
   arbitrary bit depth.
 
-| First UID | Last UID | Byte 1 | Byte 2 | Byte 3 | Byte 4 | Byte 5 | Byte 6 | Byte 7 |Bits|
-|----------:|---------:|--------|--------|--------|--------|--------|--------|--------|----:|
-| 0         | 0x7f     | 0xxxxxxx |      |        |        |        |        |        | 7   |
-| 0x80      | 0x7ff    | 110xxxxx | 10xxxxxx |    |        |        |        |        | 11  |
-| 0x800     | 0xffff   | 1110xxxx | 10xxxxxx | 10xxxxxx |  |        |        |        | 16  |
-| 0x10000   | 0x1fffff | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx ||        |        | 21  |
-| 0x200000  | 0x3ffffff| 111110xx | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx||       | 26  |
-| 0x4000000 |0x7fffffff| 1111110x | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx||31|
+| First UID | Last UID | Byte 1   | Byte 2   | Byte 3 | Byte 4 | Byte 5 | Byte 6 | Byte 7 |Bits |
+|----------:|---------:|----------|----------|--------|--------|--------|--------|--------|----:|
+| 0         | 0x7f     | 0xxxxxxx |          |        |        |        |        |        | 7   |
+| 0x80      | 0x7ff    | 110xxxxx | 10xxxxxx |        |        |        |        |        | 11  |
+| 0x800     | 0xffff   | 1110xxxx | 10xxxxxx | 10xxxxxx |      |        |        |        | 16  |
+| 0x10000   | 0x1fffff | 11110xxx | 10xxxxxx | 10xxxxxx | 10xxxxxx |    |        |        | 21  |
+| 0x200000  | 0x3ffffff| 111110xx | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx|   |        | 26  |
+| 0x4000000 |0x7fffffff| 1111110x | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx| | 31  |
 | 0x80000000|0xfffffffff|11111110 | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx | 10xxxxxx |36|
 |0x1000000000|2\*\*41-1 |11111111 | 100xxxxx | ...      |          |          |          |          |41|
 | 2\*\*41    |2\*\*46-1 |11111111 | 1010xxxx | ...      |          |          |          |          |46|
@@ -188,3 +196,15 @@ Today's plan:
 So for _n_ bytes, _n >= 2_, there are _11 + 5 \* (n - 2)_ bits available,
 meaning 64-bit integers can blow up to 13 bytes under this encoding (12 bytes,
 61 bits -> (2\*\*62-1) < (2\*\*64-1) < (2\*\*66-1) <- 13 bytes, 66 bits).
+
+### 2021.11.04
+
+So after bootstrapping a root trie, we need a "type module"...or do we?  It
+almost seems like too much complexity.  I'm not for polluting the builtin
+names, but when I start mapping reflective types to ANOI, I get in deep water
+quickly.  Parametric/generic types?  Enumerations?  Types versus type
+instances?  A lot of these notions weren't present in Python when I wrote the
+original proposal, but now I rely on them, and I'd like to see them reflected
+into ANOI.
+
+What is a "module" anyway?  How does it differ from a "namespace"?
