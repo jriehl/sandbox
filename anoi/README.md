@@ -167,10 +167,10 @@ STRING := vec<CODE_POINT>
 Today's plan:
 
 1. ✔ Download WordNet 3.1 [here](https://wordnet.princeton.edu/download/current-version)
-2. Write loader
-3. Load into a test space
+2. ✔ Write loader
+3. ✔ Load into a test space
 4. Initial article loader, which is a simple compress call on the input string
-5. Verify compression (and linking) is happening
+5. ✔ Verify compression (and linking) is happening
 
 #### Aside:
 

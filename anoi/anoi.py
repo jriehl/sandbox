@@ -5,7 +5,7 @@ import abc
 import enum
 import functools
 import struct
-from typing import Any, Dict, Iterator, Optional, Tuple
+from typing import Any, Dict, Iterable, Iterator, Optional, Tuple
 
 import redis
 
@@ -222,8 +222,11 @@ class ANOIRedis32Space(ANOISpace):
         return False
 
 
+def ord_iter(in_str: str) -> Iterator[int]:
+    return (ord(ch) for ch in in_str)
+
 def str_to_vec(in_str: str) -> Tuple[int]:
-    return tuple(ord(cp) for cp in in_str)
+    return tuple(ord_iter(in_str))
 
 
 class ANOITrie:
@@ -347,7 +350,7 @@ def root_trie(space: ANOISpace) -> ANOITrie:
 
 class ANOITrieProxy:
     def __init__(self, trie: ANOITrie):
-        self.__dict__['__trie__'] = trie
+        super().__setattr__('__trie__', trie)
 
     def __getattr__(self, name: str) -> int:
         return self.__trie__.get_name(name)
