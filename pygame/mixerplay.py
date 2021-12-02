@@ -7,9 +7,9 @@ class SoundBoard:
         self.size = size
         self.sounds: List[Optional[mixer.Sound]] = [None] * size
 
-    def update(self, mapping: Optional[Mapping[int, Optional[mixer.Sound | str]]] = None):
-        if mapping is not None:
-            for index, sound in mapping.items():
+    def update(self, mapping: Mapping[int, Optional[mixer.Sound | str]]):
+        for index, sound in mapping.items():
+            if index >= 0 and index < self.size:
                 if isinstance(sound, str):
                     sound = mixer.Sound(sound)
                 self.sounds[index] = sound
@@ -23,7 +23,7 @@ class SoundBoard:
 
     @classmethod
     def from_iterable(cls, iterable: Iterable[Optional[mixer.Sound | str]]):
-        return cls.from_mapping({index: sound for index, sound in enumerate(iterable)})
+        return cls.from_mapping(dict(enumerate(iterable)))
 
     def play(self, index: int, *args, **kws) -> Optional[mixer.Channel]:
         if index < 0 or index > (self.size - 1):

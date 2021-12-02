@@ -1,4 +1,6 @@
+import argparse
 import threading
+import yaml
 from pygame import display, event, mixer
 import pygame
 
@@ -57,11 +59,20 @@ class LaunchBoard(midiplay.Launchpad):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input', nargs=1, type=open, )
+    ns = parser.parse_args()
     display.init()
-    display.set_mode([1,1])
+    display.set_mode([1, 1])
     mixerplay.mixer.init()
     midiplay.MIDI = midiplay.MidiWrapper()
     lb = LaunchBoard()
     lb.smiley()
-    lb.board.sounds[0] = mixer.Sound('/Users/jon/Music/deafbeef/output.wav')
+    yaml_doc = yaml.safe_load(ns.input[0])
+    if not isinstance(yaml_doc, dict):
+        raise ValueError('expected YAML object document')
+    entries = yaml_doc['entries']
+    if len(entries) > 64:
+        raise ValueError('YAML list must contain fewer than 65 entries')
+    lb.board.update(dict(enumerate(entries)))
     lb.event_loop()
