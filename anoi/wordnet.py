@@ -157,7 +157,7 @@ class ANOIWordNetLoader:
                 self.space.cross(synset_uid, self.definition_uid)))
         print(f'Total definitions in code points: {characters}')
         print(f'Total definitions in UIDs: {uids}')
-        print(f'Compression ratio: {uids/characters}')
+        print(f'Compression ratio: 1:{characters/uids}')
         if hasattr(self.space, 'uid_map'):
             print(f'Allocated atom count: {len(self.space.uid_map)}')
 
