@@ -61,7 +61,6 @@ class Launchpad:
         self.input = midi.Input(input_id) if input_id is not None else MIDI.default_input
         self.output = midi.Output(output_id) if output_id is not None else MIDI.default_output
         self.wrapper = InputWrapper(self.input, self.handler)
-        self.state = [False] * 144
 
     def key_xy(self, row: int, col: int) -> int:
         return (row * 16) + col
@@ -73,15 +72,10 @@ class Launchpad:
         self.key_red(key)
 
     def key_up(self, key: int):
-        if self.state[key]:
-            if key in SMILEY:
-                self.key_amber(key)
-            else:
-                self.key_clear(key)
-            self.state[key] = False
+        if key in SMILEY:
+            self.key_amber(key)
         else:
-            self.key_green(key)
-            self.state[key] = True
+            self.key_clear(key)
 
     def key_amber(self, key: int):
         self.output.write_short(144, key, 63)
@@ -102,7 +96,6 @@ class Launchpad:
         if msg_type == 144:
             key = data1
             velocity = data2
-            print('Note on', key, velocity)
             if velocity > 0:
                 self.key_down(key)
             else:
