@@ -102,6 +102,17 @@ class LaunchBoard(midiplay.Launchpad):
             self.wrapper.cancel_loop.set()
 
 
+major_intervals = 2, 2, 1, 2, 2, 2, 1
+
+def major_key(root):
+    return [root + sum(major_intervals[:index]) for index in range(7)]
+
+minor_intervals = 2, 1, 2, 2, 1, 2, 2
+
+def minor_key(root):
+    return [root + sum(minor_intervals[:index]) for index in range(7)]
+
+
 def soundboard(args):
     display.init()
     display.set_mode([1, 1])
