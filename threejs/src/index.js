@@ -6,8 +6,6 @@ import * as THREE from 'three';
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
-import * as THREEx from './THREEx.FullScreen';
-
 let camera, scene, renderer, video;
 
 function init() {
@@ -72,10 +70,12 @@ function init() {
 
     const button = document.getElementById('thebutton');
     button.onclick = function (event) {
-        if (THREEx.FullScreen.activated()) {
-            THREEx.FullScreen.cancel();
+        if (!document.fullscreenElement) {
+            document.body.requestFullscreen().catch((err) => {
+                alert(`Could not enable full-screen: ${err.message} (${err.name})`);
+            });
         } else {
-            THREEx.FullScreen.request();
+            document.exitFullscreen();
         }
     };
 }
