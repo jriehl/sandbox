@@ -22,11 +22,15 @@ function init() {
     geometry.scale(0.5, 0.5, 0.5);
     const material = new THREE.MeshBasicMaterial({map: texture});
 
-    const texture2 = new THREE.TextureLoader().load('dist/play.png');
+    const loader = new THREE.TextureLoader();
+
+    const texture2 = loader.load('dist/play.png');
 
     const geometry2 = new THREE.PlaneGeometry(6, 9);
     geometry2.scale(0.5, 0.5, 0.5);
-    const material2 = new THREE.MeshBasicMaterial({map: texture2});
+    const material2 = new THREE.MeshBasicMaterial({
+        map: texture2, transparent: true, opacity: 1
+    });
 
     const count = 128;
     const radius = 32;
@@ -49,6 +53,12 @@ function init() {
     const viewport = document.getElementById('viewport');
     viewport.appendChild(renderer.domElement);
 
+    const texture3 = loader.load('dist/bg.jpg', () => {
+        const rt = new THREE.WebGLCubeRenderTarget(texture3.image.height);
+        rt.fromEquirectangularTexture(renderer, texture3);
+        scene.background = rt.texture;
+    });
+
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableZoom = false;
     controls.enablePan = false;
@@ -69,15 +79,12 @@ function init() {
     }
 
     const button = document.getElementById('thebutton');
-    button.onclick = function (event) {
-        if (!document.fullscreenElement) {
-            document.body.requestFullscreen().catch((err) => {
-                alert(`Could not enable full-screen: ${err.message} (${err.name})`);
-            });
-        } else {
-            document.exitFullscreen();
-        }
-    };
+    button.onclick = doFullscreen;
+
+    window.addEventListener('dblclick', () => {
+        button.style.display = 'none';
+        doFullscreen();
+    });
 }
 
 function onWindowResize() {
@@ -85,6 +92,16 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
 
     renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function doFullscreen(event) {
+    if (!document.fullscreenElement) {
+        document.body.requestFullscreen().catch((err) => {
+            alert(`Could not enable full-screen: ${err.message} (${err.name})`);
+        });
+    } else {
+        document.exitFullscreen();
+    }
 }
 
 function animate() {

@@ -5,9 +5,9 @@
     <title>Jon plays with THREE.js</title>
   </head>
   <body style="overflow: hidden; margin: auto;">
-    <button id="thebutton">FS</button>
+    <button id="thebutton" style="z-index: 1; position: absolute;">FULLSCREEN</button>
     <video id="video" style="display:none" autoplay playsinline></video>
-    <div id="viewport" style="overflow: hidden;"></div>
+    <div id="viewport" style="overflow: hidden; z-index: 0;"></div>
     <script src="dist/bundle.js"></script>
   </body>
 </html>
