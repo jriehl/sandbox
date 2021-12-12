@@ -1,5 +1,5 @@
 /**
- * Starts with three/examp
+ * Starts with three/example_webcam
  */
 
 import * as THREE from 'three';
@@ -24,7 +24,7 @@ function init() {
 
     const loader = new THREE.TextureLoader();
 
-    const texture2 = loader.load('dist/play.png');
+    const texture2 = loader.load(document.getElementById('fg').src);
 
     const geometry2 = new THREE.PlaneGeometry(6, 9);
     geometry2.scale(0.5, 0.5, 0.5);
@@ -53,7 +53,7 @@ function init() {
     const viewport = document.getElementById('viewport');
     viewport.appendChild(renderer.domElement);
 
-    const texture3 = loader.load('dist/bg.jpg', () => {
+    const texture3 = loader.load(document.getElementById('bg').src, () => {
         const rt = new THREE.WebGLCubeRenderTarget(texture3.image.height);
         rt.fromEquirectangularTexture(renderer, texture3);
         scene.background = rt.texture;
