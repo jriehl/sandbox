@@ -4,13 +4,20 @@ from nltk.corpus import wordnet as wn
 from nltk.corpus.reader.wordnet import Lemma, Synset
 import tqdm
 
-import anoi
+from . import anoi
 
 
 NIL = anoi.ANOIReserved.NIL.value
 
 
 class ANOIWordNetLoader:
+    lemma_uid: int = NIL
+    synset_uid: int = NIL
+    definition_uid: int = NIL
+    antonym_uid: int = NIL
+    hypernym_uid: int = NIL
+    hyponym_uid: int = NIL
+
     def __init__(self, namespace: anoi.ANOINamespace, verbose: bool = False):
         self.space = namespace.space
         self.namespace = namespace
@@ -19,13 +26,19 @@ class ANOIWordNetLoader:
         self.lemma_map: Dict[Lemma, int] = {}
         self.synset_map: Dict[Synset, int] = {}
         self.verbose: bool = verbose
-        self.name_uid: int = NIL
-        self.lemma_uid: int = NIL
-        self.synset_uid: int = NIL
-        self.definition_uid: int = NIL
-        self.antonym_uid: int = NIL
-        self.hypernym_uid: int = NIL
-        self.hyponym_uid: int = NIL
+        self.name_uid: int = namespace.basis.get_name('NAME')
+        self.loaded = False
+        self.init_common_uids()
+
+    def init_common_uids(self):
+        loaded = True
+        for uid_prop in self.__annotations__:
+            wordnet_term = uid_prop[:-4]
+            prop_uid = self.namespace.get_name(wordnet_term)
+            setattr(self, uid_prop, prop_uid)
+            if prop_uid == NIL:
+                loaded = False
+        self.loaded = loaded
 
     def build_vec(self, vec_uids: Iterable[int]) -> int:
         result = self.space.get_uid()
@@ -33,15 +46,23 @@ class ANOIWordNetLoader:
         return result
 
     def define_everything(self):
-        for synset in wn.all_synsets():
+        synset_iter = wn.all_synsets()
+        if self.verbose:
+            synset_iter = tqdm.tqdm(list(synset_iter), 'define_synsets')
+        for synset in synset_iter:
             self.define_synset(synset)
         all_lemma_names = set.union(
             *(set(ss.lemma_names()) for ss in wn.all_synsets()))
         all_lemmas = set.union(*(set(ss.lemmas()) for ss in wn.all_synsets()))
         assert len(all_lemma_names) == len(all_lemmas)
-        for lemma_name in all_lemma_names:
+        for lemma_name in (
+                tqdm.tqdm(all_lemma_names, 'define_terms')
+                if self.verbose else all_lemma_names):
             self.define_term(lemma_name.replace('_', ' '))
-        for lemma in all_lemmas:
+        self.definition_uid = self.term_map['definition']
+        for lemma in (
+                tqdm.tqdm(all_lemmas, 'define_lemmas')
+                if self.verbose else all_lemmas):
             self.define_lemma(lemma)
 
     def define_lemma(self, lemma: Lemma) -> int:
@@ -85,6 +106,7 @@ class ANOIWordNetLoader:
         self.load_synsets()
         if self.verbose:
             self.report()
+        self.loaded = True
 
     def load_lemmas(self):
         map_iter = self.lemma_map.items()

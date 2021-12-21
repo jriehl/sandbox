@@ -208,3 +208,22 @@ original proposal, but now I rely on them, and I'd like to see them reflected
 into ANOI.
 
 What is a "module" anyway?  How does it differ from a "namespace"?
+
+### 2021.12.16
+
+Okay, so I have some things working in the WordNet module, though I used NLTK
+instead of the raw WordNet data.  When I ran the compression routine on the
+WordNet definitions, I get a ~1:2.3 code point to UID ratio.  Ideally, this
+compression ratio would be higher than 1:4, since a UID is four bytes in parts
+of my prototype, and English expressed in UTF-8 should only be a single byte.
+
+It would appear the next step would be some means of navigation of the
+resulting space.  What do those requirements look like?
+
+### 2021.12.20
+
+To answer the previous question, they look like what the new "/nav" endpoint in
+the Flask application does.  The next step here is to get the navigation
+endpoint to detect names in the root and WordNet namespaces.
+
+This commit also fixes some errors in the trie logic.

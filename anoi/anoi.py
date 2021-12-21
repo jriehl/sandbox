@@ -5,7 +5,7 @@ import abc
 import enum
 import functools
 import struct
-from typing import Any, Dict, Iterable, Iterator, Optional, Tuple
+from typing import Any, Dict, Iterator, Optional, Tuple
 
 import redis
 
@@ -24,6 +24,9 @@ class ANOIBootstrapped(enum.Enum):
     TIME = enum.auto()
     NEXT = enum.auto()
     PREV = enum.auto()
+
+
+ANOIReservedSet = set(elem.value for elem in ANOIReserved)
 
 
 class ANOISpace(abc.ABC):
@@ -330,12 +333,10 @@ def build_root_trie(space: ANOISpace) -> ANOITrie:
     root_trie = ANOITrie(space)
     for reserved in ANOIReserved:
         space.validate(reserved.value)
-        trie_uid = root_trie.set_name(reserved.name, reserved.value)
-        space.cross_equals(reserved.value, root_trie.root, trie_uid)
+        root_trie.set_name(reserved.name, reserved.value)
     for bootstrapped in ANOIBootstrapped:
         target_uid = space.get_uid()
-        trie_uid = root_trie.set_name(bootstrapped.name, target_uid)
-        space.cross_equals(target_uid, root_trie.root, trie_uid)
+        root_trie.set_name(bootstrapped.name, target_uid)
     return root_trie
 
 @functools.cache
@@ -387,8 +388,7 @@ class ANOINamespace(ANOITrie):
         my_root = basis_trie.get_name(name)
         if my_root == ANOIReserved.NIL.value:
             my_root = space.get_uid()
-            basis_tail = basis_trie.set_name(name, my_root)
-            space.cross_equals(my_root, ANOIReserved.ROOT.value, basis_tail)
+            basis_trie.set_name(name, my_root)
         super().__init__(space, my_root)
 
     def set_name(self, name: str, uid: int) -> int:
