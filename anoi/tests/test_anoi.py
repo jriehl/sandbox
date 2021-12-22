@@ -2,7 +2,7 @@ import unittest
 
 import redis
 
-import anoi
+from .. import anoi
 
 
 redis_client = None
@@ -72,6 +72,56 @@ class TestANOISpaces(unittest.TestCase):
     @unittest.skipUnless(check_redis(), 'No Redis server found.')
     def test_redis_space(self):
         self._check_space(anoi.ANOIRedis32Space(redis_client, 'XXX_test'))
+
+
+class TestANOITrie(unittest.TestCase):
+    def test_trie_and_compress(self):
+        space = anoi.ANOIInMemorySpace()
+        trie = anoi.ANOITrie(space)
+        uid0 = space.get_uid()
+        uid1 = space.get_uid()
+        uid2 = space.get_uid()
+        uid3 = space.get_uid()
+        uid4 = space.get_uid()
+        vec0 = uid0, uid1
+        vec1 = uid1, uid2
+        vec2 = uid2, uid0
+        vec3 = uid0, uid1, uid2
+        NIL = anoi.ANOIReserved.NIL.value
+        self.assertEqual(trie.get_vector(vec0), NIL)
+        self.assertEqual(trie.get_vector(vec1), NIL)
+        self.assertEqual(trie.get_vector(vec2), NIL)
+        self.assertEqual(trie.get_vector(vec3), NIL)
+        self.assertRaises(ValueError, trie.set_vector, (), uid0)
+        # XXX: Not sure what set_vector() should return, but going to test
+        # what's already there for now.
+        self.assertEqual(trie.set_vector(vec0, uid0), uid0)
+        self.assertEqual(trie.set_vector(vec1, uid1), uid1)
+        self.assertEqual(trie.set_vector(vec2, uid2), uid2)
+        self.assertEqual(trie.set_vector(vec3, uid3), uid3)
+        self.assertEqual(trie.get_vector(vec0), uid0)
+        self.assertEqual(trie.get_vector(vec1), uid1)
+        self.assertEqual(trie.get_vector(vec2), uid2)
+        self.assertEqual(trie.get_vector(vec3), uid3)
+        self.assertIn(trie.root, space.get_keys(uid0))
+        self.assertIn(trie.root, space.get_keys(uid1))
+        self.assertIn(trie.root, space.get_keys(uid2))
+        self.assertIn(trie.root, space.get_keys(uid3))
+        test_dict = {
+            'a': uid0, 'b': uid1, 'cd': uid2, 'cde': uid3, 'cdf': uid4}
+        for name in test_dict.keys():
+            self.assertFalse(trie.has_name(name))
+        for name, uid in test_dict.items():
+            self.assertEqual(trie.set_name(name, uid), uid)
+        for name in test_dict.keys():
+            self.assertTrue(trie.has_name(name))
+        self.assertFalse(trie.has_name('c'))
+        self.assertFalse(trie.has_name('cdd'))
+        self.assertFalse(trie.has_name('ab'))
+        self.assertFalse(trie.has_name('g'))
+        for name, uid in test_dict.items():
+            self.assertEqual(trie.get_name(name), uid)
+        self.assertEqual(anoi.compress(trie, vec3), (uid3, ))
 
 
 if __name__ == '__main__':

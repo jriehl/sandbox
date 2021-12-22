@@ -26,19 +26,18 @@ class ANOIWordNetLoader:
         self.lemma_map: Dict[Lemma, int] = {}
         self.synset_map: Dict[Synset, int] = {}
         self.verbose: bool = verbose
-        self.name_uid: int = namespace.basis.get_name('NAME')
-        self.loaded = False
-        self.init_common_uids()
+        self.loaded = self.init_wordnet_props()
 
-    def init_common_uids(self):
+    def init_wordnet_props(self):
         loaded = True
         for uid_prop in self.__annotations__:
             wordnet_term = uid_prop[:-4]
             prop_uid = self.namespace.get_name(wordnet_term)
-            setattr(self, uid_prop, prop_uid)
             if prop_uid == NIL:
                 loaded = False
-        self.loaded = loaded
+                break
+            setattr(self, uid_prop, prop_uid)
+        return loaded
 
     def build_vec(self, vec_uids: Iterable[int]) -> int:
         result = self.space.get_uid()
@@ -71,7 +70,6 @@ class ANOIWordNetLoader:
             # TODO: Could we check for a lemma's definition somehow?
             lemma_uid = self.space.get_uid()
             self.lemma_map[lemma] = lemma_uid
-            self.space.set_content(lemma_uid, anoi.str_to_vec(lemma.name()))
         return lemma_uid
 
     def define_synset(self, synset: Synset) -> int:
@@ -92,7 +90,6 @@ class ANOIWordNetLoader:
             if ns_uid == NIL:
                 term_uid = self.space.get_uid()
                 self.term_map[term] = term_uid
-                self.space.set_content(term_uid, anoi.str_to_vec(term))
                 self.namespace.set_name(term, term_uid)
             else:
                 self.term_map[term] = term_uid = ns_uid
@@ -100,7 +97,10 @@ class ANOIWordNetLoader:
 
     def load(self):
         self.define_everything()
-        self.set_properties()
+        if not self.init_wordnet_props():
+            raise RuntimeError(
+                'failed to initialize common properties after defining all '
+                'terms in WordNet')
         self.load_terms()
         self.load_lemmas()
         self.load_synsets()
@@ -112,14 +112,18 @@ class ANOIWordNetLoader:
         map_iter = self.lemma_map.items()
         if self.verbose:
             map_iter = tqdm.tqdm(map_iter, desc='load_lemmas()')
+        lemma_prop = self.term_map['lemma']
         for lemma, lemma_uid in map_iter:
             lemma_name = lemma.name()
             term_candidate = lemma_name.replace('_', ' ')
             if term_candidate in self.term_map:
-                name_uid = self.term_map[term_candidate]
+                name_uid = self.space.cross(
+                    self.term_map[term_candidate], self.namespace.NAME)
+                assert name_uid != NIL
+                self.space.cross_equals(
+                    lemma_uid, self.namespace.NAME, name_uid)
             else:
-                name_uid = self.build_vec(anoi.ord_iter(lemma_name))
-            self.space.cross_equals(lemma_uid, self.name_uid, name_uid)
+                self.namespace.name_atom(lemma_uid, term_candidate)
             self.space.cross_equals(
                 lemma_uid, self.synset_uid, self.synset_map[lemma.synset()])
             antonyms = lemma.antonyms()
@@ -127,13 +131,14 @@ class ANOIWordNetLoader:
                 self.space.cross_equals(
                     lemma_uid, self.antonym_uid, self.build_vec(
                         self.lemma_map[antonym] for antonym in antonyms))
+            self.space.cross_equals(lemma_uid, self.namespace.TYPE, lemma_prop)
 
     def load_synsets(self):
         map_iter = self.synset_map.items()
         if self.verbose:
             map_iter = tqdm.tqdm(map_iter, desc='load_synsets()')
+        synset_prop = self.term_map['synset']
         for synset, synset_uid in map_iter:
-            # TODO: Name?
             hypernyms = synset.hypernyms()
             if len(hypernyms) > 0:
                 self.space.cross_equals(
@@ -145,20 +150,22 @@ class ANOIWordNetLoader:
             if len(hyponyms) > 0:
                 self.space.cross_equals(
                     synset_uid, self.hyponym_uid, self.build_vec(
-                        self.synset_map[hyponym] for hyponym in hyponyms
-                    )
-                )
+                        self.synset_map[hyponym] for hyponym in hyponyms))
+            definition_atom = self.build_vec(
+                anoi.compress_iter(
+                    self.namespace, anoi.str_to_vec(synset.definition())))
             self.space.cross_equals(
-                synset_uid, self.definition_uid, self.build_vec(
-                    anoi.compress_iter(
-                        self.namespace, anoi.str_to_vec(synset.definition()))
-                )
-            )
+                synset_uid, self.definition_uid, definition_atom)
+            self.space.cross_equals(
+                definition_atom, self.namespace.TYPE, self.definition_uid)
+            self.space.cross_equals(
+                synset_uid, self.namespace.TYPE, synset_prop)
 
     def load_terms(self):
         map_iter = self.term_map.items()
         if self.verbose:
             map_iter = tqdm.tqdm(map_iter, desc='load_terms()')
+
         for term, term_uid in map_iter:
             lemma_name = term.replace(' ', '_')
             # Link lemmas
@@ -182,14 +189,6 @@ class ANOIWordNetLoader:
         print(f'Compression ratio: 1:{characters/uids}')
         if hasattr(self.space, 'uid_map'):
             print(f'Allocated atom count: {len(self.space.uid_map)}')
-
-    def set_properties(self):
-        # Load our property names...
-        for property_name in ('name', 'lemma', 'synset', 'definition',
-                'antonym', 'hypernym', 'hyponym'):
-            property_uid = self.ns_proxy[property_name]
-            assert property_uid != NIL
-            setattr(self, f'{property_name}_uid', property_uid)
 
 
 def main():

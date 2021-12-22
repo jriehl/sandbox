@@ -231,6 +231,9 @@ def ord_iter(in_str: str) -> Iterator[int]:
 def str_to_vec(in_str: str) -> Tuple[int]:
     return tuple(ord_iter(in_str))
 
+def vec_to_str(in_vec: Iterator[int]) -> str:
+    return ''.join(map(chr, in_vec))
+
 
 class ANOITrie:
     def __init__(self, space: ANOISpace, root: int = ANOIReserved.ROOT.value):
@@ -309,11 +312,13 @@ def compress_iter(trie: ANOITrie, uid_vec: Tuple[int]) -> Iterator[int]:
         last_good_ref = NIL
         last_good_pos = i
         j = i + 1
-        while (j < uid_vec_len) and (NIL != crnt_uid):
+        while (j <= uid_vec_len) and (NIL != crnt_uid):
             crnt_ref = cross(crnt_uid, REF)
             if NIL != crnt_ref:
                 last_good_ref = crnt_ref
                 last_good_pos = j
+            if j >= uid_vec_len:
+                break
             crnt_uid = cross(crnt_uid, uid_vec[j])
             j = j + 1
         if last_good_ref == NIL:
@@ -334,9 +339,16 @@ def build_root_trie(space: ANOISpace) -> ANOITrie:
     for reserved in ANOIReserved:
         space.validate(reserved.value)
         root_trie.set_name(reserved.name, reserved.value)
-    for bootstrapped in ANOIBootstrapped:
-        target_uid = space.get_uid()
-        root_trie.set_name(bootstrapped.name, target_uid)
+    bootstrapped_uids = {bootstrapped.name: space.get_uid()
+        for bootstrapped in ANOIBootstrapped}
+    name_uid = bootstrapped_uids['NAME']
+    type_uid = bootstrapped_uids['TYPE']
+    for bootstrapped_name, target_uid in bootstrapped_uids.items():
+        root_trie.set_name(bootstrapped_name, target_uid)
+        target_name_uid = space.get_uid()
+        space.set_content(target_name_uid, str_to_vec(bootstrapped_name))
+        space.cross_equals(target_uid, name_uid, target_name_uid)
+        space.cross_equals(target_name_uid, type_uid, name_uid)
     return root_trie
 
 @functools.cache
@@ -390,11 +402,20 @@ class ANOINamespace(ANOITrie):
             my_root = space.get_uid()
             basis_trie.set_name(name, my_root)
         super().__init__(space, my_root)
+        self.name_atom(my_root, name)
+
+    def name_atom(self, atom_uid: int, name: str) -> int:
+        result = self.space.cross(atom_uid, self.NAME)
+        if result == ANOIReserved.NIL.value:
+            result = self.space.get_uid()
+            self.space.set_content(result, str_to_vec(name))
+            self.space.cross_equals(result, self.TYPE, self.NAME)
+            self.space.cross_equals(atom_uid, self.NAME, result)
+        return result
 
     def set_name(self, name: str, uid: int) -> int:
         result = super().set_name(name, uid)
-        self.space.set_content(result, str_to_vec(name))
-        self.space.cross_equals(result, self.TYPE, self.NAME)
+        self.name_atom(result, name)
         return result
 
 
